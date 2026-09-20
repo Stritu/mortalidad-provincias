@@ -1,9 +1,11 @@
-library(shiny)
-library(leaflet)
-library(dplyr)
-library(sf)
-library(bslib)
-library(plotly)
+suppressPackageStartupMessages({
+  library(shiny)
+  library(leaflet)
+  library(dplyr)
+  library(sf)
+  library(bslib)
+  library(plotly)
+})
 
 # ------------------------------------------------------------------------------
 # Helpers de lectura y limpieza (optimizados con data.table::fread)

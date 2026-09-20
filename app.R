@@ -44,6 +44,7 @@ ui <- page_navbar(
   
   header = tags$head(
     tags$meta(name = "viewport", content = "width=device-width, initial-scale=1"),
+    tags$link(rel = "stylesheet", type = "text/css", href = "theme-pro.css"),
     tags$style(HTML("
       body { background: #f5f7fa; }
       .card { margin-bottom: 16px !important; border-radius: 12px; }

@@ -1,0 +1,119 @@
+/* Paleta profesional de la app (solo chrome: navbar, pestañas, sidebar, tarjetas).
+   Los gráficos no se tocan. Carga después del tema Flatly. */
+
+:root {
+  --pro-navy: #1a2f47;
+  --pro-navy-2: #243b57;
+  --pro-teal: #14b8a6;
+  --pro-teal-dark: #0f766e;
+  --pro-ink: #1e3a5f;
+  --pro-muted: #5b6b7b;
+  --pro-line: #e6ebf1;
+}
+
+/* ---- Navbar superior ---- */
+.navbar.navbar-default {
+  background-color: var(--pro-navy);
+  border-color: var(--pro-navy);
+  border-bottom: 3px solid var(--pro-teal);
+}
+.navbar .navbar-brand {
+  color: #fff !important;
+  font-weight: 600;
+  letter-spacing: .2px;
+}
+.navbar .navbar-brand:hover { color: #fff !important; }
+.navbar .nav > li > a,
+.navbar .navbar-nav > li > a,
+.navbar .nav-link {
+  color: rgba(255, 255, 255, .72) !important;
+}
+.navbar .nav > li > a:hover,
+.navbar .navbar-nav > li > a:hover,
+.navbar .nav-link:hover {
+  color: #fff !important;
+  background-color: rgba(255, 255, 255, .07) !important;
+}
+.navbar .nav > li.active > a,
+.navbar .navbar-nav > li.active > a,
+.navbar .nav-link.active {
+  color: #fff !important;
+  background-color: transparent !important;
+  box-shadow: inset 0 -3px 0 var(--pro-teal);
+}
+
+/* ---- Subpestañas ---- */
+.nav-tabs .nav-link {
+  color: var(--pro-muted);
+  border: none;
+  border-bottom: 2px solid transparent;
+}
+.nav-tabs .nav-link:hover {
+  color: var(--pro-ink);
+  border-color: transparent;
+  background-color: rgba(26, 47, 71, .05);
+}
+.nav-tabs .nav-link.active,
+.nav-tabs .nav-item.show .nav-link {
+  color: var(--pro-teal-dark) !important;
+  font-weight: 600;
+  background-color: transparent !important;
+  border-color: transparent !important;
+  border-bottom: 2px solid var(--pro-teal) !important;
+}
+
+/* ---- Sidebar ---- */
+.sidebar .sidebar-title,
+.sidebar-title {
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--pro-muted);
+}
+.sidebar .control-label,
+.sidebar label.control-label {
+  font-weight: 600;
+  color: #334155;
+  font-size: .85rem;
+}
+.sidebar {
+  background-color: #fbfcfe;
+  border: 1px solid var(--pro-line);
+}
+
+/* ---- Tarjetas ---- */
+.card {
+  border: 1px solid var(--pro-line);
+  box-shadow: 0 1px 3px rgba(26, 47, 71, .07);
+}
+.card-header:not(.bg-info) {
+  font-weight: 600;
+  color: var(--pro-ink);
+  background-color: #fbfcfe;
+  border-bottom: 1px solid var(--pro-line);
+}
+
+/* ---- Formularios ---- */
+.selectize-input,
+.form-control,
+.selectize-dropdown {
+  border-radius: 8px;
+}
+.selectize-input.focus,
+.form-control:focus {
+  border-color: var(--pro-teal) !important;
+  box-shadow: 0 0 0 .15rem rgba(20, 184, 166, .18) !important;
+}
+input[type="range"] { accent-color: var(--pro-teal-dark); }
+input[type="checkbox"],
+input[type="radio"] { accent-color: var(--pro-teal-dark); }
+.btn:focus-visible,
+a:focus-visible,
+.nav-link:focus-visible {
+  outline: 2px solid var(--pro-teal);
+  outline-offset: 2px;
+}
+
+/* ---- Cajas de aviso ---- */
+.filter-help { border-left-color: var(--pro-teal-dark); }
