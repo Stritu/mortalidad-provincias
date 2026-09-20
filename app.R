@@ -1619,7 +1619,7 @@ ui <- page_navbar(
       "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"
     )
   ),
-  title = "Análisis de defunciones (2018-2022)",
+  title = "Análisis de defunciones (2009-2024)",
   
   header = tags$head(
     tags$meta(name = "viewport", content = "width=device-width, initial-scale=1"),
