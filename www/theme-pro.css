@@ -117,3 +117,26 @@ a:focus-visible,
 
 /* ---- Cajas de aviso ---- */
 .filter-help { border-left-color: var(--pro-teal-dark); }
+
+/* ---- Móvil y tablet: refuerzos (las bases ya están en app.R) ---- */
+img, svg, canvas, video {
+  max-width: 100%;
+}
+.leaflet-popup-content {
+  max-width: 230px !important;
+  overflow-wrap: anywhere;
+}
+.leaflet-popup-content-wrapper { max-width: 260px; }
+
+@media (max-width: 767.98px) {
+  .value-box .value-box-showcase { max-width: 56px; }
+  .value-box .value-box-showcase svg,
+  .value-box .value-box-showcase .bi {
+    width: 34px;
+    height: 34px;
+  }
+  .value-box .value-box-value { font-size: 1.15rem; }
+  .card-header { font-size: .95rem; }
+  .dataTables_wrapper { font-size: .85rem; }
+  .leaflet-control-zoom { margin-top: 40px !important; }
+}
