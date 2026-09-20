@@ -1,0 +1,9 @@
+.Rhistory
+.Rproj.user
+61520.csv
+preparar_datos.R
+rsconnect/
+# Los CSV gigantes viajan como caché ya procesada (cache/*.rds): hay que
+# ejecutar la app una vez en local para generarla antes de desplegar.
+funciones.csv
+defunciones_edad_provincia.csv
