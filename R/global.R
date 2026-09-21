@@ -891,6 +891,40 @@ lista_edades      <- levels(copia_func$Edad)
 ev_edades <- lista_edades[lista_edades %in% unique(as.character(
   funciones_provinciales$Edad[funciones_provinciales$Funciones == "Esperanza de vida"]))]
 
+# ------------------------------------------------------------------------------
+# NORMALIZADOR DE CCAA (nombres INE variados -> nombre canónico de la app).
+# Cubre "Castilla - La Mancha" (con espacios), "Comunitat Valenciana" (INE),
+# "Balears, Illes", "Rioja, La", "Asturias, Principado de", etc.
+# ------------------------------------------------------------------------------
+normalizar_ccaa <- function(x) {
+  # Sin prefijos numéricos ("01 Andalucía") y con el canónico con espacios
+  # ("Castilla - La Mancha", como mapSpain).
+  cl <- toupper(stringi::stri_trans_general(as.character(x), "Latin-ASCII"))
+  cl <- trimws(gsub("\\s+", " ", sub("^\\d+\\s*", "", cl)))
+  dplyr::case_when(
+    cl %in% c("ANDALUCIA") ~ "Andalucía",
+    cl %in% c("ARAGON") ~ "Aragón",
+    cl %in% c("ASTURIAS", "ASTURIAS, PRINCIPADO DE", "PRINCIPADO DE ASTURIAS") ~ "Asturias",
+    cl %in% c("BALEARS, ILLES", "ILLES BALEARS", "ISLAS BALEARES") ~ "Islas Baleares",
+    cl %in% c("CANARIAS") ~ "Canarias",
+    cl %in% c("CANTABRIA") ~ "Cantabria",
+    cl %in% c("CASTILLA - LA MANCHA", "CASTILLA-LA MANCHA", "CASTILLA LA MANCHA") ~ "Castilla - La Mancha",
+    cl %in% c("CASTILLA Y LEON") ~ "Castilla y León",
+    cl %in% c("CATALUNA") ~ "Cataluña",
+    cl %in% c("CEUTA") ~ "Ceuta",
+    cl %in% c("COMUNITAT VALENCIANA", "COMUNIDAD VALENCIANA", "VALENCIANA") ~ "Comunidad Valenciana",
+    cl %in% c("EXTREMADURA") ~ "Extremadura",
+    cl %in% c("GALICIA") ~ "Galicia",
+    cl %in% c("MADRID", "MADRID, COMUNIDAD DE", "COMUNIDAD DE MADRID") ~ "Madrid",
+    cl %in% c("MELILLA") ~ "Melilla",
+    cl %in% c("MURCIA", "MURCIA, REGION DE", "REGION DE MURCIA") ~ "Murcia",
+    cl %in% c("NAVARRA", "NAVARRA, COMUNIDAD FORAL DE", "COMUNIDAD FORAL DE NAVARRA") ~ "Navarra",
+    cl %in% c("PAIS VASCO", "EUSKADI") ~ "País Vasco",
+    cl %in% c("RIOJA, LA", "LA RIOJA") ~ "La Rioja",
+    TRUE ~ NA_character_
+  )
+}
+
 # ==============================================================================
 # 2. MAPA DE ESPAÑA
 # ==============================================================================
@@ -905,6 +939,19 @@ mapa_provincias <- local({
     mutate(NAME_2 = normalizar_provincias(ine.prov.name))
   cache_guardar(.obj_mapa, character(0), .rds_mapa)
   .obj_mapa
+})
+
+# Mapa por comunidad autónoma (19 CCAA, para los indicadores que ya vienen
+# agregados por CCAA: renta, médicos e índice). Misma caché permanente.
+mapa_ccaa <- local({
+  .rds_ccaa <- file.path("cache", "cache_mapa_ccaa.rds")
+  .obj_ccaa <- cache_cargar(character(0), .rds_ccaa)
+  if (!is.null(.obj_ccaa)) return(.obj_ccaa)
+  .obj_ccaa <- mapSpain::esp_get_ccaa() %>%
+    st_transform(4326) %>%
+    mutate(Comunidad = normalizar_ccaa(ine.ccaa.name))
+  cache_guardar(.obj_ccaa, character(0), .rds_ccaa)
+  .obj_ccaa
 })
 
 # ------------------------------------------------------------------------------
@@ -1470,41 +1517,9 @@ prov_a_comunidad <- function(provincias) {
 }
 
 # ------------------------------------------------------------------------------
-# NORMALIZADOR DE CCAA (nombres INE variados -> nombre canónico de la app).
-# Cubre "Castilla - La Mancha" (con espacios), "Comunitat Valenciana" (INE),
-# "Balears, Illes", "Rioja, La", "Asturias, Principado de", etc.
-# ------------------------------------------------------------------------------
-normalizar_ccaa <- function(x) {
-  # Sin prefijos numéricos ("01 Andalucía") y con el canónico con espacios
-  # ("Castilla - La Mancha", como mapSpain).
-  cl <- toupper(stringi::stri_trans_general(as.character(x), "Latin-ASCII"))
-  cl <- trimws(gsub("\\s+", " ", sub("^\\d+\\s*", "", cl)))
-  dplyr::case_when(
-    cl %in% c("ANDALUCIA") ~ "Andalucía",
-    cl %in% c("ARAGON") ~ "Aragón",
-    cl %in% c("ASTURIAS", "ASTURIAS, PRINCIPADO DE", "PRINCIPADO DE ASTURIAS") ~ "Asturias",
-    cl %in% c("BALEARS, ILLES", "ILLES BALEARS", "ISLAS BALEARES") ~ "Islas Baleares",
-    cl %in% c("CANARIAS") ~ "Canarias",
-    cl %in% c("CANTABRIA") ~ "Cantabria",
-    cl %in% c("CASTILLA - LA MANCHA", "CASTILLA-LA MANCHA", "CASTILLA LA MANCHA") ~ "Castilla - La Mancha",
-    cl %in% c("CASTILLA Y LEON") ~ "Castilla y León",
-    cl %in% c("CATALUNA") ~ "Cataluña",
-    cl %in% c("CEUTA") ~ "Ceuta",
-    cl %in% c("COMUNITAT VALENCIANA", "COMUNIDAD VALENCIANA", "VALENCIANA") ~ "Comunidad Valenciana",
-    cl %in% c("EXTREMADURA") ~ "Extremadura",
-    cl %in% c("GALICIA") ~ "Galicia",
-    cl %in% c("MADRID", "MADRID, COMUNIDAD DE", "COMUNIDAD DE MADRID") ~ "Madrid",
-    cl %in% c("MELILLA") ~ "Melilla",
-    cl %in% c("MURCIA", "MURCIA, REGION DE", "REGION DE MURCIA") ~ "Murcia",
-    cl %in% c("NAVARRA", "NAVARRA, COMUNIDAD FORAL DE", "COMUNIDAD FORAL DE NAVARRA") ~ "Navarra",
-    cl %in% c("PAIS VASCO", "EUSKADI") ~ "País Vasco",
-    cl %in% c("RIOJA, LA", "LA RIOJA") ~ "La Rioja",
-    TRUE ~ NA_character_
-  )
-}
-
-# ------------------------------------------------------------------------------
 # RENTA (provincia × año × indicador) Y MÉDICOS (CCAA × año).
+# (normalizar_ccaa vive arriba, junto a los mapas, porque mapa_ccaa lo necesita)
+# ------------------------------------------------------------------------------
 # Ficheros pequeños: sin caché. Año de médicos sale del nombre del fichero
 # (2021 trae otra estructura: 3 columnas con fila TOTAL nacional).
 # ------------------------------------------------------------------------------

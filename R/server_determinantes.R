@@ -85,15 +85,14 @@ server_determinantes <- function(input, output, session) {
 
   output$det_mapa <- renderLeaflet({
     df <- datos_det()
-    mapa_datos <- mapa_provincias %>%
-      mutate(Comunidad = prov_a_comunidad(NAME_2)) %>%
+    mapa_datos <- mapa_ccaa %>%
       left_join(df, by = "Comunidad")
     val_max <- max(mapa_datos$Valor, na.rm = TRUE)
     val_min <- min(mapa_datos$Valor, na.rm = TRUE)
     dominio <- if (!all(is.finite(c(val_min, val_max))) || val_min == val_max) c(0, 1) else c(val_min, val_max)
     pal <- colorNumeric(palette = PAL_YLORRD, domain = dominio, na.color = "#E0E0E0")
     etiquetas <- sprintf("<strong>%s</strong><br/>%s: %s",
-                         mapa_datos$NAME_2,
+                         mapa_datos$Comunidad,
                          htmltools::htmlEscape(input$det_ind),
                          det_fmt(mapa_datos$Valor, input$det_ind)) %>%
       lapply(htmltools::HTML)
@@ -238,15 +237,14 @@ server_determinantes <- function(input, output, session) {
   output$idx_mapa <- renderLeaflet({
     df <- datos_idx()
     req(nrow(df) > 0)
-    mapa_datos <- mapa_provincias %>%
-      mutate(Comunidad = prov_a_comunidad(NAME_2)) %>%
+    mapa_datos <- mapa_ccaa %>%
       left_join(df %>% select(Comunidad, Indice), by = "Comunidad")
     val_max <- max(mapa_datos$Indice, na.rm = TRUE)
     val_min <- min(mapa_datos$Indice, na.rm = TRUE)
     dominio <- dominio_seguro(mapa_datos$Indice)
     pal <- colorNumeric(palette = PAL_YLGNBU, domain = dominio, na.color = "#E0E0E0")
     etiquetas <- sprintf("<strong>%s</strong><br/>Índice sintético: %s",
-                         mapa_datos$NAME_2,
+                         mapa_datos$Comunidad,
                          format(round(mapa_datos$Indice, 1), big.mark = ".", decimal.mark = ",", nsmall = 1)) %>%
       lapply(htmltools::HTML)
     leaflet(mapa_datos) %>%
