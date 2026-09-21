@@ -798,7 +798,8 @@ rm(datos_func)
 # Resúmenes reutilizables (0.52 + 0.83 s): en disco, no se reagrupan.
 resumenes <- local({
   .rds_res <- file.path("cache", "cache_resumenes.rds")
-  .obj_res <- cache_cargar(c("causas_defunciones.csv", "funciones.csv"), .rds_res)
+  .obj_res <- cache_cargar(c("causas_defunciones.csv", "funciones.csv"), .rds_res,
+                           sin_fuente_ok = TRUE)
   if (!is.null(.obj_res)) return(.obj_res)
   causas_provinciales <- copia_causas %>%
     group_by(Año, Año_Num, Sexo, Provincia, Defunción) %>%
@@ -1355,7 +1356,7 @@ cargar_datos_edad <- function(ruta_def = "defunciones_edad_provincia.csv",
 datos_edad_std <- local({
   rds <- file.path("cache", "cache_edadstd.rds")
   ftes <- c("defunciones_edad_provincia.csv", "poblacion_edad_provincia.csv")
-  obj <- cache_cargar(ftes, rds)
+  obj <- cache_cargar(ftes, rds, sin_fuente_ok = TRUE)
   if (is.null(obj)) {
     obj <- cargar_datos_edad()
     if (!is.null(obj)) cache_guardar(obj, ftes, rds)

@@ -34,3 +34,5 @@ shiny::runApp()
 ```
 
 Los CSV de origen van en la raíz (`causas_defunciones.csv`, `funciones.csv`, `europa.csv`, …). La primera ejecución genera `cache/`.
+
+> `funciones.csv` (70 MB) y `defunciones_edad_provincia.csv` (146 MB) superan el límite de GitHub y no viajan en el repo: la app arranca igualmente desde `cache/*.rds` (incluidos). Solo hacen falta si quieres regenerar las cachés desde cero (fuente: INE).

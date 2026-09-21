@@ -2,3 +2,9 @@
 .Rhistory
 *.out
 rsconnect/
+# CSV gigantes (>50 MB, límite GitHub): la app arranca desde cache/*.rds,
+# que sí viaja al repo. Para regenerar, descargar del INE:
+# - funciones.csv (Funciones demográficas por provincia/sexo/edad)
+# - defunciones_edad_provincia.csv (defunciones por edad simple y provincia)
+funciones.csv
+defunciones_edad_provincia.csv
