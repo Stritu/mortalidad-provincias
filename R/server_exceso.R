@@ -1,9 +1,5 @@
 server_exceso <- function(input, output, session) {
 
-  # Animación de años (checkbox de la pestaña).
-  animar_anos(input, session, "ex_animar", "ex_ano",
-              if (is.null(datos_edadprov)) character(0) else datos_edadprov$anos)
-
   # --- EXCESO DE MORTALIDAD SERVER (baseline = media 2015-2019) ---
   ex_base_anos <- function(anos_disp) {
     intersect(as.character(2015:2019), as.character(anos_disp))

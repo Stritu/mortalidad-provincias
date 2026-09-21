@@ -29,6 +29,7 @@ source("R/server_multivariante.R", encoding = "UTF-8")
 # 3. INTERFAZ DE USUARIO (UI)
 # ==============================================================================
 ui <- page_navbar(
+  id = "nav_principal",
   theme = bs_theme(
     bootswatch = "flatly",
     primary = "#2c3e50",

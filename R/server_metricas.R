@@ -1,13 +1,4 @@
 server_metricas <- function(input, output, session) {
-
-  # Animación de años (checkboxes de la pestaña).
-  animar_anos(input, session, "p3_animar", "p3_ano", c("2018", "2019", "2020", "2021", "2022"))
-  animar_anos(input, session, "p31_animar", "p31_ano_radar",
-              sort(unique(as.character(copia_p$Año))))
-  animar_anos(input, session, "demp_animar", "demp_ano", padron_anos)
-  animar_anos(input, session, "deme_animar", "deme_ano", padron_anos)
-  animar_anos(input, session, "demb_animar", "demb_ano",
-              sort(unique(as.character(copia_func$Año))))
   
   # Cuadro informativo dinámico
   output$p3_cuadro_informativo_dinamico <- renderUI({

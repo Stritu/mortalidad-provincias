@@ -1,8 +1,5 @@
 server_multivariante <- function(input, output, session) {
 
-  # Animación de años (checkbox de la pestaña).
-  animar_anos(input, session, "pm_animar", "pm_ano",
-              sort(unique(as.character(causas_provinciales$Año))))
   
   # ---------------------------------------------------------------------------
   # ANÁLISIS MULTIVARIANTE: PCA + K-MEANS SOBRE TASAS POR CAUSA (PROVINCIAS)

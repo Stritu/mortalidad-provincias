@@ -1,12 +1,4 @@
 server_causas <- function(input, output, session) {
-
-  # Animación de años (checkboxes de la pestaña).
-  animar_anos(input, session, "p2_animar", "p2_ano", sort(unique(copia_causas$Año)))
-  animar_anos(input, session, "pmes_animar", "pmes_ano", meses_anios)
-  animar_anos(input, session, "std_animar", "std_ano",
-              if (is.null(datos_edad_std)) character(0) else datos_edad_std$anos)
-  animar_anos(input, session, "ep_animar", "ep_ano",
-              if (is.null(datos_edadprov)) character(0) else datos_edadprov$anos)
   
   # Ayudas contextuales
   output$p2_filtro_info <- renderUI({

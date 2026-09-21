@@ -1,8 +1,5 @@
 server_regresiones <- function(input, output, session) {
 
-  # Animación de años (checkbox de la pestaña).
-  animar_anos(input, session, "p32_animar", "p32_ano",
-              sort(unique(as.character(causas_provinciales$Año))))
   
 # ---------------------------------------------------------------------------
   # PANEL EUROPEO: EFECTOS FIJOS (pais, anio, causa_grupo, sexo)

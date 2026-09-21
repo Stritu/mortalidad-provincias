@@ -2,6 +2,17 @@
   # PESTAÑA 1: RESUMEN GENERAL
 ui_resumen <- nav_panel(
     title = "Resumen general",
+    bslib::card(
+      card_body(
+        HTML("<h3 class='mt-1'>Mortalidad en España y Europa</h3><p class='text-muted mb-2'>Defunciones 2018–2022 por causa, provincia, sexo y edad · Exceso 2009–2024 · Comparación europea · Fuentes: INE y Eurostat.</p>"),
+        div(class = "d-flex flex-wrap gap-2",
+            actionButton("por_ir_causas", "Causas", icon = icon("lungs"), class = "btn-outline-primary"),
+            actionButton("por_ir_europa", "Europa", icon = icon("flag"), class = "btn-outline-primary"),
+            actionButton("por_ir_exceso", "Exceso", icon = icon("chart-line"), class = "btn-outline-primary"),
+            actionButton("por_ir_determinantes", "Determinantes", icon = icon("coins"), class = "btn-outline-primary"),
+            actionButton("por_ir_multi", "Multivariante", icon = icon("diagram-project"), class = "btn-outline-primary"))
+      )
+    ),
     # Div Bootstrap plano (sin bslib::card): crece con el contenido y muestra
     # todo el texto sin scroll interno. Las gráficas quedan debajo.
     div(
@@ -65,6 +76,10 @@ ui_resumen <- nav_panel(
       div(class = "filter-help", HTML(
         "<b>Contexto:</b> indicadores de 2022; todas las causas y ambos sexos. Tasas de defunción por 100.000 habitantes. Los gráficos agregan todo el periodo disponible, salvo Europa que muestra 2022."
       )),
+      bslib::card(
+        card_header("Titulares (2022, calculados con los datos)"),
+        card_body(htmlOutput("por_titulares"))
+      ),
       layout_columns(
         col_widths = c(6, 6),
         bslib::card(card_header("Top 8 causas por APVP"),

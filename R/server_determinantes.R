@@ -1,9 +1,5 @@
 server_determinantes <- function(input, output, session) {
 
-  # Animación de años (checkboxes de la pestaña).
-  animar_anos(input, session, "det_animar", "det_ano", det_anos)
-  animar_anos(input, session, "idx_animar", "idx_ano", det_anos)
-
   # ---------------------------------------------------------------------------
   # DETERMINANTES SERVER (renta/médicos por CCAA + cruce con mortalidad)
   # ---------------------------------------------------------------------------

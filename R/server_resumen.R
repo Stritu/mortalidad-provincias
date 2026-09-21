@@ -1,5 +1,62 @@
 server_resumen <- function(input, output, session) {
 
+  # Accesos directos de la portada a las pestañas principales.
+  observeEvent(input$por_ir_causas, {
+    bslib::nav_select("nav_principal", selected = "Causas de defunción", session = session)
+  })
+  observeEvent(input$por_ir_europa, {
+    bslib::nav_select("nav_principal", selected = "Europa", session = session)
+  })
+  observeEvent(input$por_ir_exceso, {
+    bslib::nav_select("nav_principal", selected = "Exceso de mortalidad", session = session)
+  })
+  observeEvent(input$por_ir_determinantes, {
+    bslib::nav_select("nav_principal", selected = "Determinantes", session = session)
+  })
+  observeEvent(input$por_ir_multi, {
+    bslib::nav_select("nav_principal", selected = "Análisis multivariante", session = session)
+  })
+
+  # Titulares calculados con los datos (2022, todas las causas, ambos sexos).
+  output$por_titulares <- renderUI({
+    c22 <- causas_provinciales %>% filter(Año_Num == 2022)
+    if (!nrow(c22)) return(HTML("<p>Sin datos de 2022.</p>"))
+    tot <- sum(c22$Fallecidos, na.rm = TRUE)
+    pob <- c22 %>% distinct(Provincia, Sexo, Poblacion) %>%
+      summarise(P = sum(Poblacion, na.rm = TRUE), .groups = "drop") %>% pull(P)
+    tasa <- if (length(pob) && pob > 0) tot / pob * 100000 else NA_real_
+    top_c <- c22 %>% group_by(Defunción) %>%
+      summarise(F = sum(Fallecidos, na.rm = TRUE), .groups = "drop") %>%
+      arrange(desc(F)) %>% slice(1)
+    pob_p <- c22 %>% distinct(Provincia, Sexo, Poblacion) %>%
+      group_by(Provincia) %>% summarise(P = sum(Poblacion, na.rm = TRUE), .groups = "drop")
+    top_p <- c22 %>% group_by(Provincia) %>%
+      summarise(F = sum(Fallecidos, na.rm = TRUE), .groups = "drop") %>%
+      left_join(pob_p, by = "Provincia") %>%
+      mutate(T = if_else(P > 0, F / P * 100000, NA_real_)) %>%
+      filter(is.finite(T)) %>% arrange(desc(T)) %>% slice(1)
+    ev <- tryCatch(
+      funciones_provinciales %>%
+        filter(Funciones == "Esperanza de vida", Año == "2022", Sexo == "Ambos",
+               as.character(Edad) == "0") %>%
+        arrange(desc(Valor)) %>% slice(1),
+      error = function(e) NULL
+    )
+    fmt <- function(x, d = 1) format(round(x, d), big.mark = ".", decimal.mark = ",")
+    items <- c(
+      sprintf("<li>En 2022 fallecieron <b>%s personas</b> (tasa de %s por 100k).</li>",
+              fmt(tot, 0), fmt(tasa)),
+      if (nrow(top_c)) sprintf("<li>Primera causa: <b>%s</b> (%s defunciones, %s %% del total).</li>",
+                               htmltools::htmlEscape(top_c$Defunción[1]),
+                               fmt(top_c$F[1], 0), fmt(top_c$F[1] / tot * 100)) else NULL,
+      if (nrow(top_p)) sprintf("<li>Mayor tasa provincial: <b>%s</b> (%s por 100k).</li>",
+                               htmltools::htmlEscape(top_p$Provincia[1]), fmt(top_p$T[1])) else NULL,
+      if (!is.null(ev) && nrow(ev)) sprintf("<li>Mayor esperanza de vida al nacer: <b>%s</b> (%s años).</li>",
+                                            htmltools::htmlEscape(ev$Provincia[1]),
+                                            fmt(ev$Valor[1])) else NULL
+    )
+    HTML(paste0("<ul class='mb-0'>", paste(items, collapse = ""), "</ul>"))
+  })
 
   # --- RESUMEN GENERAL SERVER ---
   # FIX: causas_provinciales solo trae Hombres/Mujeres (sin filas "Ambos"),
