@@ -332,49 +332,6 @@ ui_causas <- nav_panel(
                         card_body(DT::DTOutput("pev_tabla")))
           )
         )
-      ),
-      nav_panel(
-        title = "Clusters de provincias",
-        layout_sidebar(
-          sidebar = sidebar(
-            title = "Filtros",
-            width = 290,
-            selectInput("cl_ano", "Año:", choices = sort(unique(copia_causas$Año)),
-                        selected = if ("2022" %in% copia_causas$Año) "2022" else sort(unique(copia_causas$Año))[1]),
-            radioButtons("cl_sexo", "Sexo:", choices = c("Ambos", "Hombres", "Mujeres"), selected = "Ambos"),
-            sliderInput("cl_k", "Nº de clusters:", min = 2, max = 8, value = 4, step = 1),
-            div(class = "filter-help", HTML(
-              "<b>k-means</b> sobre las tasas por capítulo estandarizadas (semilla fija: reproducible)."
-            ))
-          ),
-          layout_columns(
-            col_widths = c(4, 4, 4),
-            value_box(title = "Clusters", value = textOutput("cl_kpi_k"),
-                      showcase = bsicons::bs_icon("diagram-3"), theme = "primary"),
-            value_box(title = "k con mejor silueta", value = textOutput("cl_kpi_sil"),
-                      showcase = bsicons::bs_icon("award"), theme = "info"),
-            value_box(title = "Cluster más numeroso", value = textOutput("cl_kpi_top"),
-                      showcase = bsicons::bs_icon("people"), theme = "success")
-          ),
-          bslib::card(
-            card_header("Interpretación"),
-            card_body(HTML("<p>Cada provincia se resume en su <b>perfil de causas</b> (tasa por 100k de cada capítulo, estandarizada para que ningún capítulo domine por escala). El <b>codo</b> ayuda a elegir k: el punto donde añadir clusters deja de reducir mucho la dispersión interna. El <b>mapa de calor</b> usa log2 frente a la media nacional: rojo = tasa del cluster por encima, azul = por debajo.</p>"))
-          ),
-          layout_columns(
-            col_widths = c(6, 6),
-            bslib::card(card_header("Mapa de clusters"),
-                        card_body(padding = 0, leafletOutput("cl_mapa", height = "430px"))),
-            bslib::card(card_header("Codo: dispersión interna según k"),
-                        card_body(plotlyOutput("cl_codo", height = "430px")))
-          ),
-          layout_columns(
-            col_widths = c(6, 6),
-            bslib::card(card_header("Perfil de cada cluster frente a la media nacional (log2)"),
-                        card_body(plotlyOutput("cl_perfiles", height = "520px"))),
-            bslib::card(card_header("Provincia → cluster"),
-                        card_body(DT::DTOutput("cl_tabla")))
-          )
-        )
       )
     )
   )

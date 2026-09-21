@@ -12,7 +12,7 @@ ui_multivariante <- nav_panel(
         radioButtons("pm_sexo", "Sexo:", choices = c("Ambos", "Hombres", "Mujeres"), selected = "Ambos"),
         sliderInput("pm_k", "Nº de clusters (k-means):", min = 2, max = 6, value = 3, step = 1),
         div(class = "filter-help", HTML(
-          "<b>Nota:</b> PCA sobre tasas por 100.000 (centradas y escaladas; sin la causa Total ni causas sin variación entre provincias). K-means sobre PC1-PC2 con semilla fija."
+          "<b>Nota:</b> PCA sobre tasas por 100.000 (centradas y escaladas; sin la causa Total ni causas sin variación entre provincias). K-means sobre PC1-PC2 con semilla fija. El codo y la silueta ayudan a elegir k."
         )),
         uiOutput("pm_info")
       ),
@@ -36,6 +36,8 @@ ui_multivariante <- nav_panel(
             "<p><b>Flechas de las causas:</b> cada flecha es una causa de defunción. Apunta hacia donde aumentan sus tasas: las provincias en esa dirección mueren más por esa causa. Su <b>longitud</b> indica cuánto pesa esa causa en la diferencia entre provincias (flechas largas = causas que más discriminan) y el <b>ángulo</b> entre dos flechas su relación: ángulo pequeño = suben juntas, ángulo llano (~180º) = cuando una sube la otra baja, ángulo recto = independientes.</p>",
             "<p><b>Scree:</b> la barra muestra lo que explica cada componente y la línea el acumulado. Si con dos componentes se supera ~2/3 de la varianza, el plano resume bien el conjunto.</p>",
             "<p><b>K-means y mapa:</b> agrupa provincias por perfil de mortalidad (no por geografía): que un cluster salga geográficamente compacto en el mapa es un hallazgo, no un requisito.</p>",
+            "<p><b>Codo y silueta:</b> el codo muestra la dispersión interna según k (el punto donde deja de bajar mucho sugiere el k); la línea verde marca el k con mejor silueta media.</p>",
+            "<p><b>Mapa de calor log2:</b> perfil de cada cluster frente a la media nacional. Rojo = tasa del cluster por encima, azul = por debajo.</p>",
             "<p class='text-muted mb-0'><small>Nivel ecológico (provincias, no personas): las asociaciones no implican causalidad individual. Tasas centradas y escaladas antes del PCA.</small></p>"
           )))
         ),
@@ -46,6 +48,18 @@ ui_multivariante <- nav_panel(
         div(class = "card mb-4",
             div(class = "card-header", "Mapa de clusters"),
             div(class = "card-body p-0", leafletOutput("pm_mapa", height = "750px"))
+        ),
+        div(class = "card mb-4",
+            div(class = "card-header", "Codo y silueta (elección de k)"),
+            div(class = "card-body p-2", plotlyOutput("pm_codo", height = "450px"))
+        ),
+        div(class = "card mb-4",
+            div(class = "card-header", "Perfil de cada cluster frente a la media nacional (log2)"),
+            div(class = "card-body p-2", plotlyOutput("pm_perfiles", height = "520px"))
+        ),
+        div(class = "card mb-4",
+            div(class = "card-header", "Provincia → cluster"),
+            div(class = "card-body p-2", DT::DTOutput("pm_tabla"))
         ),
         div(class = "card mb-4",
             div(class = "card-header", "Varianza explicada (scree)"),

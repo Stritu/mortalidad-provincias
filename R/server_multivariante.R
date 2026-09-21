@@ -141,6 +141,84 @@ server_multivariante <- function(input, output, session) {
       addLegend(pal = pal, values = ~Cluster, opacity = 0.8, title = "Cluster", position = "bottomright")
   })
 
+  # Codo + silueta sobre los k-means precomputados (k = 2..6, espacio PC1-PC2).
+  sil_pm <- function(scores, grupos) {
+    if (!requireNamespace("cluster", quietly = TRUE)) return(NA_real_)
+    suppressWarnings(tryCatch(
+      mean(cluster::silhouette(grupos, stats::dist(scores))[, "sil_width"]),
+      error = function(e) NA_real_
+    ))
+  }
+
+  datos_pm_codo <- reactive({
+    obj <- datos_pm_sel()
+    scores <- obj$pca$x[, 1:min(2, ncol(obj$pca$x)), drop = FALSE]
+    ks <- which(!vapply(obj$kms, is.null, logical(1))) + 1L
+    data.frame(
+      k = ks,
+      WSS = vapply(obj$kms[ks - 1L], function(km) km$tot.withinss, numeric(1)),
+      Silueta = vapply(obj$kms[ks - 1L], function(km) sil_pm(scores, km$cluster), numeric(1))
+    )
+  })
+
+  output$pm_codo <- renderPlotly({
+    codo <- datos_pm_codo()
+    req(nrow(codo) > 0)
+    mejor <- if (all(is.na(codo$Silueta))) NA_integer_ else codo$k[which.max(codo$Silueta)]
+    p <- plot_ly(codo, x = ~k, y = ~WSS, type = "scatter", mode = "lines+markers",
+                 text = ~paste0("k=", k, "<br>Silueta: ", round(Silueta, 3)),
+                 hoverinfo = "text",
+                 marker = list(color = "#1a2f47", line = list(color = "white", width = 1)),
+                 line = list(color = "#1a2f47")) %>%
+      layout(xaxis = list(title = "k", dtick = 1), yaxis = list(title = "Dispersión interna (WSS)"),
+             hoverlabel = list(bgcolor = "white"),
+             margin = list(l = 70, r = 20, b = 60, t = 20))
+    if (is.finite(mejor)) {
+      p <- p %>% layout(shapes = list(list(type = "line", x0 = mejor, x1 = mejor,
+                                           y0 = 0, y1 = 1, yref = "paper",
+                                           line = list(color = "#0E9F8A", dash = "dash"))),
+                        annotations = list(list(x = mejor, y = 1, yref = "paper",
+                                                text = "mejor silueta", showarrow = FALSE,
+                                                font = list(color = "#0E9F8A"))))
+    }
+    p
+  })
+
+  output$pm_perfiles <- renderPlotly({
+    obj <- datos_pm_sel()
+    km <- km_pm()
+    mat <- obj$mat
+    req(nrow(mat) > 0)
+    grupos <- factor(km$cluster, levels = seq_len(nrow(km$centers)),
+                     labels = paste0("Cluster ", seq_len(nrow(km$centers))))
+    medias <- aggregate(mat, by = list(Cluster = grupos), FUN = function(v) mean(v, na.rm = TRUE))
+    nac <- colMeans(mat, na.rm = TRUE)
+    logr <- log2(sweep(as.matrix(medias[, -1, drop = FALSE]), 2, nac, `/`))
+    logr[!is.finite(logr)] <- 0
+    rownames(logr) <- as.character(medias$Cluster)
+    m <- suppressWarnings(max(abs(logr)))
+    if (!is.finite(m) || m == 0) m <- 1
+    plot_ly(x = rownames(logr), y = colnames(logr), z = t(logr), type = "heatmap",
+            colorscale = "RdBu", reversescale = TRUE, zmin = -m, zmax = m,
+            hovertemplate = "<b>%{x} · %{y}</b><br>log2: %{z:.2f}<extra></extra>") %>%
+      layout(xaxis = list(title = ""), yaxis = list(title = "", tickfont = list(size = 10)),
+             margin = list(l = 220, r = 20, b = 100, t = 20))
+  })
+
+  output$pm_tabla <- DT::renderDT({
+    p <- pca_pm()
+    km <- km_pm()
+    k <- nrow(km$centers)
+    tab <- data.frame(
+      Provincia = rownames(p$x),
+      Comunidad = unname(prov_a_comunidad(rownames(p$x))),
+      Cluster = paste0("Cluster ", km$cluster),
+      stringsAsFactors = FALSE
+    ) %>% arrange(Cluster, Provincia)
+    DT::datatable(tab, options = list(pageLength = 17, autoWidth = TRUE, scrollX = TRUE),
+                  rownames = FALSE)
+  })
+
   output$pm_cor <- renderPlotly({
     m <- datos_pm_sel()$cor
     # Ejes numéricos con etiquetas (los categóricos fallaban en algunos navegadores).
@@ -184,7 +262,8 @@ server_multivariante <- function(input, output, session) {
 
   # Forzar renderizado aunque la pestaña no esté activa
   for (nm in c("pm_info", "pm_kpi_var", "pm_kpi_k", "pm_kpi_n",
-               "pm_scree", "pm_biplot", "pm_mapa", "pm_cor", "pm_perfil")) {
+               "pm_scree", "pm_biplot", "pm_mapa", "pm_codo", "pm_perfiles", "pm_tabla",
+               "pm_cor", "pm_perfil")) {
     outputOptions(output, nm, suspendWhenHidden = FALSE)
 }
 }
