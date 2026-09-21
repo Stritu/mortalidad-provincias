@@ -417,6 +417,48 @@ ui_causas <- nav_panel(
                         card_body(DT::DTOutput("al_tabla")))
           )
         )
+      ),
+      nav_panel(
+        title = "Comparador de CCAA",
+        layout_sidebar(
+          sidebar = sidebar(
+            title = "Configuración",
+            width = 290,
+            selectInput("cc_comunidad", "Comunidad:",
+                        choices = sort(unique(causas_provinciales$Comunidad)),
+                        selected = "Madrid"),
+            selectInput("cc_ano", "Año (radar y KPIs):",
+                        choices = sort(unique(copia_causas$Año)),
+                        selected = if ("2022" %in% copia_causas$Año) "2022" else sort(unique(copia_causas$Año))[1]),
+            radioButtons("cc_sexo", "Sexo:", choices = c("Ambos", "Hombres", "Mujeres"), selected = "Ambos"),
+            div(class = "filter-help", HTML(
+              "Compara una comunidad con la <b>media nacional</b>: radar por capítulos, brechas por causa y evolución de la tasa total."
+            ))
+          ),
+          layout_columns(
+            col_widths = c(4, 4, 4),
+            value_box(title = "Tasa de la comunidad", value = textOutput("cc_kpi_tasa"),
+                      showcase = bsicons::bs_icon("geo-alt"), theme = "primary"),
+            value_box(title = "Brecha frente a nacional", value = textOutput("cc_kpi_brecha"),
+                      showcase = bsicons::bs_icon("arrow-left-right"), theme = "info"),
+            value_box(title = "Puesto entre CCAA", value = textOutput("cc_kpi_puesto"),
+                      showcase = bsicons::bs_icon("trophy"), theme = "success")
+          ),
+          layout_columns(
+            col_widths = c(6, 6),
+            bslib::card(card_header("Radar por capítulos (tasa / 100k)"),
+                        card_body(plotlyOutput("cc_radar", height = "430px"))),
+            bslib::card(card_header("Evolución de la tasa total (comunidad vs nacional)"),
+                        card_body(plotlyOutput("cc_evol", height = "430px")))
+          ),
+          layout_columns(
+            col_widths = c(6, 6),
+            bslib::card(card_header("Brechas por capítulo (ratio frente a nacional)"),
+                        card_body(plotlyOutput("cc_brechas", height = "520px"))),
+            bslib::card(card_header("Tabla por capítulo"),
+                        card_body(DT::DTOutput("cc_tabla")))
+          )
+        )
       )
     )
   )

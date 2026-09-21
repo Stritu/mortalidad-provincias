@@ -1421,4 +1421,156 @@ server_causas <- function(input, output, session) {
                       dec.mark = ",", mark = ".")
   })
 
+  # --- COMPARADOR DE CCAA (una comunidad frente a la media nacional) ---
+  # FIX: población con distinct(Comunidad, Provincia, Sexo) por venir repetida
+  # en cada fila de causa.
+  datos_cc <- reactive({
+    req(input$cc_comunidad, input$cc_ano, input$cc_sexo)
+    df <- causas_provinciales %>% filter(Año == input$cc_ano)
+    if (input$cc_sexo != "Ambos") df <- df %>% filter(Sexo == input$cc_sexo)
+    pob <- df %>%
+      distinct(Comunidad, Provincia, Sexo, Poblacion) %>%
+      group_by(Comunidad) %>%
+      summarise(P = sum(Poblacion, na.rm = TRUE), .groups = "drop")
+    pn <- sum(pob$P)
+    nac <- df %>%
+      group_by(Defunción) %>%
+      summarise(F = sum(Fallecidos, na.rm = TRUE), .groups = "drop") %>%
+      mutate(Tasa_nac = F / pn * 100000)
+    cap <- df %>%
+      group_by(Comunidad, Defunción) %>%
+      summarise(F = sum(Fallecidos, na.rm = TRUE), .groups = "drop") %>%
+      left_join(pob, by = "Comunidad") %>%
+      mutate(Tasa = if_else(P > 0, F / P * 100000, NA_real_)) %>%
+      filter(is.finite(Tasa))
+    cc <- cap %>%
+      filter(Comunidad == input$cc_comunidad) %>%
+      transmute(Causa = Defunción, Tasa_cc = Tasa) %>%
+      right_join(nac %>% transmute(Causa = Defunción, Tasa_nac), by = "Causa") %>%
+      mutate(Tasa_cc = dplyr::coalesce(Tasa_cc, 0),
+             Ratio = if_else(Tasa_nac > 0, Tasa_cc / Tasa_nac, NA_real_))
+    tot <- cap %>%
+      group_by(Comunidad) %>%
+      summarise(F = sum(F, na.rm = TRUE), .groups = "drop") %>%
+      left_join(pob, by = "Comunidad") %>%
+      mutate(Tasa = if_else(P > 0, F / P * 100000, NA_real_)) %>%
+      filter(is.finite(Tasa)) %>% arrange(desc(Tasa))
+    list(cap = cc, tot = tot, tasa_nac = sum(nac$F, na.rm = TRUE) / pn * 100000)
+  }) %>% bindCache(input$cc_comunidad, input$cc_ano, input$cc_sexo)
+
+  datos_cc_evol <- reactive({
+    req(input$cc_comunidad, input$cc_sexo)
+    df <- causas_provinciales
+    if (input$cc_sexo != "Ambos") df <- df %>% filter(Sexo == input$cc_sexo)
+    pob <- df %>%
+      distinct(Año, Año_Num, Comunidad, Provincia, Sexo, Poblacion) %>%
+      group_by(Año, Año_Num, Comunidad) %>%
+      summarise(P = sum(Poblacion, na.rm = TRUE), .groups = "drop")
+    t <- df %>%
+      group_by(Año, Año_Num, Comunidad) %>%
+      summarise(F = sum(Fallecidos, na.rm = TRUE), .groups = "drop") %>%
+      left_join(pob, by = c("Año", "Año_Num", "Comunidad")) %>%
+      mutate(Tasa = if_else(P > 0, F / P * 100000, NA_real_)) %>%
+      filter(is.finite(Tasa))
+    cc <- t %>%
+      filter(Comunidad == input$cc_comunidad) %>%
+      transmute(Año_Num, Tasa_cc = Tasa)
+    nac <- t %>%
+      group_by(Año, Año_Num) %>%
+      summarise(F = sum(F, na.rm = TRUE), P = sum(P, na.rm = TRUE), .groups = "drop") %>%
+      transmute(Año_Num, Tasa_nac = if_else(P > 0, F / P * 100000, NA_real_)) %>%
+      filter(is.finite(Tasa_nac))
+    left_join(cc, nac, by = "Año_Num") %>% arrange(Año_Num)
+  }) %>% bindCache(input$cc_comunidad, input$cc_sexo)
+
+  output$cc_kpi_tasa <- renderText({
+    d <- datos_cc()
+    t <- d$tot %>% filter(Comunidad == input$cc_comunidad)
+    if (!nrow(t)) return("-")
+    paste0(format(round(t$Tasa[1], 1), big.mark = ".", decimal.mark = ","),
+           " / 100k (nac: ",
+           format(round(d$tasa_nac, 1), big.mark = ".", decimal.mark = ","), ")")
+  })
+
+  output$cc_kpi_brecha <- renderText({
+    d <- datos_cc()
+    t <- d$tot %>% filter(Comunidad == input$cc_comunidad)
+    if (!nrow(t) || !is.finite(d$tasa_nac) || d$tasa_nac == 0) return("-")
+    b <- (t$Tasa[1] - d$tasa_nac) / d$tasa_nac * 100
+    paste0(ifelse(b >= 0, "+", ""), format(round(b, 1), decimal.mark = ","), " %")
+  })
+
+  output$cc_kpi_puesto <- renderText({
+    d <- datos_cc()
+    p <- match(input$cc_comunidad, d$tot$Comunidad)
+    if (is.na(p)) return("-")
+    paste0(p, "º de ", nrow(d$tot))
+  })
+
+  output$cc_radar <- renderPlotly({
+    d <- datos_cc()$cap
+    req(nrow(d) > 0)
+    d <- d %>% mutate(Etiqueta = stringr::str_wrap(Causa, width = 22))
+    plot_ly(type = "scatterpolar", fill = "toself", mode = "lines+markers") %>%
+      add_trace(r = d$Tasa_cc, theta = d$Etiqueta, name = input$cc_comunidad,
+                marker = list(color = "#0E9F8A"), fillcolor = "rgba(14,159,138,0.25)",
+                hovertemplate = "<b>%{theta}</b><br>Tasa: %{r:.1f}<extra></extra>") %>%
+      add_trace(r = d$Tasa_nac, theta = d$Etiqueta, name = "Nacional",
+                marker = list(color = "#1a2f47"), fillcolor = "rgba(26,47,71,0.15)",
+                hovertemplate = "<b>%{theta}</b><br>Nacional: %{r:.1f}<extra></extra>") %>%
+      layout(polar = list(radialaxis = list(visible = TRUE)),
+             legend = list(orientation = "h", y = -0.15),
+             hoverlabel = list(bgcolor = "white"),
+             margin = list(l = 40, r = 40, b = 80, t = 20))
+  })
+
+  output$cc_evol <- renderPlotly({
+    df <- datos_cc_evol()
+    req(nrow(df) > 0)
+    plot_ly(df, x = ~Año_Num) %>%
+      add_trace(y = ~Tasa_cc, name = input$cc_comunidad, type = "scatter",
+                mode = "lines+markers", line = list(color = "#0E9F8A", width = 2.5),
+                marker = list(line = list(color = "white", width = 1)),
+                hovertemplate = "<b>%{x}</b><br>Tasa: %{y:.1f}<extra></extra>") %>%
+      add_trace(y = ~Tasa_nac, name = "Nacional", type = "scatter",
+                mode = "lines+markers", line = list(color = "#1a2f47", dash = "dash"),
+                marker = list(line = list(color = "white", width = 1)),
+                hovertemplate = "<b>%{x}</b><br>Nacional: %{y:.1f}<extra></extra>") %>%
+      layout(xaxis = list(title = "Año", dtick = 1), yaxis = list(title = "Tasa / 100k"),
+             legend = list(orientation = "h", y = -0.15),
+             hoverlabel = list(bgcolor = "white"),
+             margin = list(l = 60, r = 20, b = 80, t = 20))
+  })
+
+  output$cc_brechas <- renderPlotly({
+    df <- datos_cc()$cap %>% filter(is.finite(Ratio)) %>% arrange(Ratio)
+    req(nrow(df) > 0)
+    lim <- suppressWarnings(max(abs(df$Ratio - 1)))
+    if (!is.finite(lim) || lim == 0) lim <- 0.1
+    plot_ly(df, x = ~Ratio, y = ~reorder(Causa, Ratio), type = "bar", orientation = "h",
+            marker = list(color = ~Ratio, colorscale = escala_plotly(PAL_RDBU_REV),
+                          cmin = 1 - lim, cmax = 1 + lim, showscale = TRUE,
+                          colorbar = list(title = "Ratio"),
+                          line = list(color = "white", width = 1)),
+            hovertemplate = "<b>%{y}</b><br>Ratio: %{x:.2f}<extra></extra>") %>%
+      layout(xaxis = list(title = "Ratio frente a la media nacional"),
+             yaxis = list(title = "", tickfont = list(size = 10)),
+             hoverlabel = list(bgcolor = "white"),
+             shapes = list(list(type = "line", x0 = 1, x1 = 1, y0 = 0, y1 = 1,
+                                yref = "paper",
+                                line = list(color = "black", dash = "dash"))),
+             margin = list(l = 220, r = 20, b = 60, t = 20))
+  })
+
+  output$cc_tabla <- DT::renderDT({
+    tab <- datos_cc()$cap %>%
+      transmute(Capítulo = Causa, `Tasa CCAA` = round(Tasa_cc, 1),
+                `Tasa nacional` = round(Tasa_nac, 1), Ratio = round(Ratio, 3)) %>%
+      arrange(desc(Ratio))
+    DT::datatable(tab, options = list(pageLength = 13, autoWidth = TRUE, scrollX = TRUE),
+                  rownames = FALSE) %>%
+      DT::formatRound(c("Tasa CCAA", "Tasa nacional", "Ratio"), c(1, 1, 3),
+                      dec.mark = ",", mark = ".")
+  })
+
 }
