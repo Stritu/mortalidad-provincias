@@ -1,5 +1,11 @@
 server_europa <- function(input, output, session) {
 
+  # Animación de años (checkboxes de la pestaña).
+  animar_anos(input, session, "eur_animar", "eur_anio",
+              sort(unique(as.character(europa_agrupada$anio))))
+  animar_anos(input, session, "eur_comp_animar", "eur_comp_anio",
+              sort(unique(as.character(europa_agrupada$anio))))
+
   # --- PESTAÑA 4: EUROPA SERVER ---
   observe({
     req(nrow(europa_agrupada) > 0)
