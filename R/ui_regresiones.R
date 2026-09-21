@@ -4,6 +4,7 @@
 ui_regresiones <- nav_panel(
     title = "Regresiones lineales",
     navset_tab(
+      id = "nav_regresiones",
       nav_panel(
         title = "Regresión entre causas",
         layout_sidebar(

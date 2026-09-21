@@ -3,6 +3,7 @@
 ui_determinantes <- nav_panel(
     title = "Determinantes",
     navset_tab(
+      id = "nav_determinantes",
       nav_panel(
         title = "Renta y médicos",
         layout_sidebar(

@@ -3,6 +3,7 @@
 ui_metricas <- nav_panel(
     title = "Métricas demográficas",
     navset_tab(
+      id = "nav_metricas",
       nav_panel(
         title = "Análisis demográfico",
         layout_sidebar(

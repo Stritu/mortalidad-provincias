@@ -3,6 +3,7 @@
 ui_causas <- nav_panel(
     title = "Causas de defunción",
     navset_tab(
+      id = "nav_causas",
       nav_panel(
         title = "Análisis provincial",
         layout_sidebar(

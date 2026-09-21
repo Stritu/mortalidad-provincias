@@ -17,6 +17,47 @@ server_resumen <- function(input, output, session) {
     bslib::nav_select("nav_principal", selected = "Análisis multivariante", session = session)
   })
 
+  # Índice de la portada: cada enlace salta a su pestaña y subpestaña.
+  destinos_indice <- list(
+    list("ir_c_prov", "Causas de defunción", "nav_causas", "Análisis provincial"),
+    list("ir_c_est", "Causas de defunción", "nav_causas", "Estacionalidad"),
+    list("ir_c_evo", "Causas de defunción", "nav_causas", "Evolución temporal"),
+    list("ir_c_comp", "Causas de defunción", "nav_causas", "Comparador de Provincias"),
+    list("ir_c_apvp", "Causas de defunción", "nav_causas", "Mortalidad prematura (APVP)"),
+    list("ir_c_std", "Causas de defunción", "nav_causas", "Tasas estandarizadas por edad"),
+    list("ir_c_edad", "Causas de defunción", "nav_causas", "Edad y mes"),
+    list("ir_c_evit", "Causas de defunción", "nav_causas", "Mortalidad evitable"),
+    list("ir_c_des", "Causas de defunción", "nav_causas", "Desigualdad territorial"),
+    list("ir_c_al", "Causas de defunción", "nav_causas", "Alertas de atípicos"),
+    list("ir_c_cc", "Causas de defunción", "nav_causas", "Comparador de CCAA"),
+    list("ir_c_inf", "Causas de defunción", "nav_causas", "Informes"),
+    list("ir_m_ana", "Métricas demográficas", "nav_metricas", "Análisis demográfico"),
+    list("ir_m_comp", "Métricas demográficas", "nav_metricas", "Comparador demográfico"),
+    list("ir_m_pir", "Métricas demográficas", "nav_metricas", "Pirámide de población"),
+    list("ir_m_env", "Métricas demográficas", "nav_metricas", "Envejecimiento y dependencia"),
+    list("ir_m_bre", "Métricas demográficas", "nav_metricas", "Brecha de género"),
+    list("ir_m_evo", "Métricas demográficas", "nav_metricas", "Evolución temporal"),
+    list("ir_m_ev", "Métricas demográficas", "nav_metricas", "Esperanza de vida"),
+    list("ir_e_mapa", "Europa", "nav_europa", "Mapa europeo"),
+    list("ir_e_comp", "Europa", "nav_europa", "Comparador de países europeos"),
+    list("ir_e_mod", "Europa", "nav_europa", "Comparación estadística europea"),
+    list("ir_e_ef", "Europa", "nav_europa", "Modelo europeo: efectos fijos"),
+    list("ir_d_renta", "Determinantes", "nav_determinantes", "Renta y médicos"),
+    list("ir_d_idx", "Determinantes", "nav_determinantes", "Índice sintético"),
+    list("ir_r_causas", "Regresiones lineales", "nav_regresiones", "Regresión entre causas"),
+    list("ir_ex", "Exceso de mortalidad", NA, NA),
+    list("ir_mult", "Análisis multivariante", NA, NA)
+  )
+  for (d in destinos_indice) {
+    local({
+      dd <- d
+      observeEvent(input[[dd[[1]]]], {
+        bslib::nav_select("nav_principal", selected = dd[[2]], session = session)
+        if (!is.na(dd[[3]])) bslib::nav_select(dd[[3]], selected = dd[[4]], session = session)
+      }, ignoreInit = TRUE)
+    })
+  }
+
   # Titulares calculados con los datos (2022, todas las causas, ambos sexos).
   output$por_titulares <- renderUI({
     c22 <- causas_provinciales %>% filter(Año_Num == 2022)

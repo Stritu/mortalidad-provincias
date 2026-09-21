@@ -3,6 +3,7 @@
 ui_europa <- nav_panel(
     title = "Europa",
     navset_tab(
+      id = "nav_europa",
       nav_panel(
         title = "Mapa europeo",
         layout_sidebar(
