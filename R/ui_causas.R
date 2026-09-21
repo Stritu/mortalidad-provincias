@@ -374,6 +374,49 @@ ui_causas <- nav_panel(
                         card_body(DT::DTOutput("des_tabla")))
           )
         )
+      ),
+      nav_panel(
+        title = "Alertas de atípicos",
+        layout_sidebar(
+          sidebar = sidebar(
+            title = "Filtros",
+            width = 290,
+            selectInput("al_causa", "Causa:", choices = c("Todas", lista_defunciones),
+                        selected = "Todas"),
+            selectInput("al_tipo", "Tipo de alerta:",
+                        choices = c("Todas", "Cambio brusco", "Nivel extremo"),
+                        selected = "Todas"),
+            radioButtons("al_sexo", "Sexo:", choices = c("Ambos", "Hombres", "Mujeres"), selected = "Ambos"),
+            div(class = "filter-help", HTML(
+              "<b>Cambio brusco:</b> |z| ≥ 2 de la tasa 2022 frente a 2018-2021 de la propia provincia. <b>Nivel extremo:</b> |z| ≥ 2,5 frente al resto de provincias en 2022. Solo combinaciones con suficientes defunciones."
+            ))
+          ),
+          layout_columns(
+            col_widths = c(4, 4, 4),
+            value_box(title = "Alertas detectadas", value = textOutput("al_kpi_n"),
+                      showcase = bsicons::bs_icon("exclamation-triangle"), theme = "danger"),
+            value_box(title = "Mayor desviación", value = textOutput("al_kpi_top"),
+                      showcase = bsicons::bs_icon("arrow-up-circle"), theme = "primary"),
+            value_box(title = "Provincias con alerta", value = textOutput("al_kpi_prov"),
+                      showcase = bsicons::bs_icon("geo-alt"), theme = "info")
+          ),
+          bslib::card(
+            card_header("Interpretación"),
+            card_body(HTML("<p>Exploración automática de <b>~1.300 combinaciones</b> provincia × causa: con tantas pruebas, algunas alertas son azar (no causalidad). Las provincias pequeñas varían más; por eso se exige un mínimo de defunciones. Pulsa una fila de la tabla para ver su serie 2018–2022 frente a la media nacional.</p>"))
+          ),
+          layout_columns(
+            col_widths = c(6, 6),
+            bslib::card(card_header("Top desviaciones (|z|)"),
+                        card_body(plotlyOutput("al_barras", height = "520px"))),
+            bslib::card(card_header("Serie de la alerta seleccionada"),
+                        card_body(plotlyOutput("al_serie", height = "520px")))
+          ),
+          layout_columns(
+            col_widths = c(12),
+            bslib::card(card_header("Tabla de hallazgos (ordenada por |z|)"),
+                        card_body(DT::DTOutput("al_tabla")))
+          )
+        )
       )
     )
   )

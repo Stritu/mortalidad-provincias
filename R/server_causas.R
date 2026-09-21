@@ -1278,4 +1278,147 @@ server_causas <- function(input, output, session) {
       DT::formatRound("Fallecidos", 0, dec.mark = ",", mark = ".")
   })
 
+  # --- ALERTAS DE ATÍPICOS (z temporal 2022 vs 2018-2021 + z transversal) ---
+  # FIX: población con distinct(Provincia, Sexo, Año) por venir repetida por causa.
+  datos_al_tasas <- reactive({
+    req(input$al_sexo)
+    df <- causas_provinciales
+    if (input$al_sexo != "Ambos") df <- df %>% filter(Sexo == input$al_sexo)
+    pob <- df %>%
+      distinct(Año, Año_Num, Provincia, Sexo, Poblacion) %>%
+      group_by(Año, Año_Num, Provincia) %>%
+      summarise(Poblacion = sum(Poblacion, na.rm = TRUE), .groups = "drop")
+    df %>%
+      group_by(Año, Año_Num, Provincia, Defunción) %>%
+      summarise(Fallecidos = sum(Fallecidos, na.rm = TRUE), .groups = "drop") %>%
+      left_join(pob, by = c("Año", "Año_Num", "Provincia")) %>%
+      mutate(Tasa = if_else(Poblacion > 0, Fallecidos / Poblacion * 100000, NA_real_)) %>%
+      filter(is.finite(Tasa))
+  }) %>% bindCache(input$al_sexo)
+
+  datos_al <- reactive({
+    t <- datos_al_tasas()
+    req(nrow(t) > 0)
+    hist <- t %>%
+      filter(Año_Num < 2022) %>%
+      group_by(Provincia, Defunción) %>%
+      summarise(n = sum(is.finite(Tasa)), F_hist = sum(Fallecidos, na.rm = TRUE),
+                Media = mean(Tasa, na.rm = TRUE), SD = stats::sd(Tasa, na.rm = TRUE),
+                .groups = "drop")
+    cur <- t %>%
+      filter(Año_Num == 2022) %>%
+      transmute(Provincia, Causa = Defunción, F2022 = Fallecidos, Tasa2022 = Tasa)
+    niv <- cur %>%
+      group_by(Causa) %>%
+      mutate(Media_nac = mean(Tasa2022, na.rm = TRUE),
+             SD_nac = stats::sd(Tasa2022, na.rm = TRUE)) %>%
+      ungroup()
+    base <- cur %>%
+      left_join(hist, by = c("Provincia", "Causa" = "Defunción")) %>%
+      left_join(niv %>% select(Provincia, Causa, Media_nac, SD_nac),
+                by = c("Provincia", "Causa")) %>%
+      mutate(
+        z_temp = if_else(!is.na(SD) & SD > 0 & n >= 3 & F_hist >= 20,
+                         (Tasa2022 - Media) / SD, NA_real_),
+        z_nivel = if_else(!is.na(SD_nac) & SD_nac > 0 & F2022 >= 20,
+                          (Tasa2022 - Media_nac) / SD_nac, NA_real_)
+      )
+    temp <- base %>%
+      filter(is.finite(z_temp), abs(z_temp) >= 2) %>%
+      transmute(Provincia, Causa, Tipo = "Cambio brusco", Tasa2022,
+                Referencia = Media, z = z_temp)
+    nivel <- base %>%
+      filter(is.finite(z_nivel), abs(z_nivel) >= 2.5) %>%
+      transmute(Provincia, Causa, Tipo = "Nivel extremo", Tasa2022,
+                Referencia = Media_nac, z = z_nivel)
+    bind_rows(temp, nivel) %>%
+      mutate(absz = abs(z)) %>%
+      arrange(desc(absz))
+  }) %>% bindCache(input$al_sexo)
+
+  datos_al_filtrados <- reactive({
+    req(input$al_causa, input$al_tipo)
+    df <- datos_al()
+    if (input$al_causa != "Todas") df <- df %>% filter(Causa == input$al_causa)
+    if (input$al_tipo != "Todas") df <- df %>% filter(Tipo == input$al_tipo)
+    df
+  })
+
+  output$al_kpi_n <- renderText({
+    format(nrow(datos_al()), big.mark = ".", decimal.mark = ",")
+  })
+
+  output$al_kpi_top <- renderText({
+    df <- datos_al()
+    if (!nrow(df)) return("-")
+    paste0(df$Provincia[1], " · ", substr(as.character(df$Causa[1]), 1, 28),
+           " (z=", format(round(df$z[1], 1), decimal.mark = ","), ")")
+  })
+
+  output$al_kpi_prov <- renderText({
+    format(dplyr::n_distinct(datos_al()$Provincia), big.mark = ".", decimal.mark = ",")
+  })
+
+  output$al_barras <- renderPlotly({
+    df <- datos_al_filtrados() %>% slice_head(n = 15) %>% arrange(absz)
+    req(nrow(df) > 0)
+    df <- df %>% mutate(Etiqueta = paste0(Provincia, " · ", substr(Causa, 1, 30)))
+    plot_ly(df, x = ~z, y = ~reorder(Etiqueta, absz), type = "bar", orientation = "h",
+            marker = list(color = ifelse(df$z >= 0, "#C0392B", "#2471A3"),
+                          line = list(color = "white", width = 1)),
+            hovertemplate = "<b>%{y}</b><br>%{customdata}<br>z: %{x:.2f}<extra></extra>",
+            customdata = ~Tipo) %>%
+      layout(xaxis = list(title = "z (signo = dirección)"), yaxis = list(title = ""),
+             hoverlabel = list(bgcolor = "white"),
+             margin = list(l = 220, r = 20, b = 60, t = 20))
+  })
+
+  output$al_serie <- renderPlotly({
+    df <- datos_al_filtrados()
+    req(nrow(df) > 0)
+    sel <- input$al_tabla_rows_selected
+    fila <- if (length(sel) && sel >= 1 && sel <= nrow(df)) df[sel, ] else df[1, ]
+    t <- datos_al_tasas() %>%
+      filter(Provincia == fila$Provincia, Defunción == fila$Causa) %>%
+      arrange(Año_Num)
+    req(nrow(t) > 0)
+    nac <- datos_al_tasas() %>%
+      filter(Defunción == fila$Causa) %>%
+      group_by(Año, Año_Num) %>%
+      summarise(F = sum(Fallecidos, na.rm = TRUE),
+                P = sum(Poblacion, na.rm = TRUE), .groups = "drop") %>%
+      mutate(Tasa = if_else(P > 0, F / P * 100000, NA_real_)) %>%
+      filter(is.finite(Tasa)) %>% arrange(Año_Num)
+    plot_ly() %>%
+      add_trace(data = t, x = ~Año_Num, y = ~Tasa, name = fila$Provincia,
+                type = "scatter", mode = "lines+markers",
+                line = list(color = "#C0392B", width = 2.5),
+                marker = list(line = list(color = "white", width = 1)),
+                hovertemplate = "<b>%{x}</b><br>Tasa: %{y:.1f}<extra></extra>") %>%
+      add_trace(data = nac, x = ~Año_Num, y = ~Tasa, name = "Nacional",
+                type = "scatter", mode = "lines+markers",
+                line = list(color = "#1a2f47", dash = "dash"),
+                marker = list(line = list(color = "white", width = 1)),
+                hovertemplate = "<b>%{x}</b><br>Nacional: %{y:.1f}<extra></extra>") %>%
+      layout(title = list(text = paste0(fila$Provincia, " · ", fila$Causa,
+                                        " (", fila$Tipo, ", z=",
+                                        format(round(fila$z, 2), decimal.mark = ","),
+                                        ")"),
+                          font = list(size = 12)),
+             xaxis = list(title = "Año", dtick = 1), yaxis = list(title = "Tasa / 100k"),
+             legend = list(orientation = "h", y = -0.18),
+             hoverlabel = list(bgcolor = "white"),
+             margin = list(l = 60, r = 20, b = 80, t = 50))
+  })
+
+  output$al_tabla <- DT::renderDT({
+    tab <- datos_al_filtrados() %>%
+      transmute(Provincia, Causa, Tipo, `Tasa 2022` = round(Tasa2022, 1),
+                Referencia = round(Referencia, 1), z = round(z, 2))
+    DT::datatable(tab, options = list(pageLength = 15, autoWidth = TRUE, scrollX = TRUE),
+                  rownames = FALSE, selection = "single") %>%
+      DT::formatRound(c("Tasa 2022", "Referencia", "z"), c(1, 1, 2),
+                      dec.mark = ",", mark = ".")
+  })
+
 }
