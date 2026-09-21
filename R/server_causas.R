@@ -68,8 +68,7 @@ server_causas <- function(input, output, session) {
     etiquetas <- sprintf("<strong>%s</strong><br/>Tasa de la causa: %s por 100k hab.", mapa_datos$NAME_2, format(round(mapa_datos$Tasa, 2), decimal.mark = ",")) %>% lapply(htmltools::HTML)
     
     leaflet(mapa_datos) %>%
-      addTiles(urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-               attribution = "&copy; OpenStreetMap contributors") %>%
+      tiles_osm() %>%
       addPolygons(fillColor = ~pal(Tasa), weight = 1, color = "white", fillOpacity = 0.8, label = etiquetas) %>%
       addLegend(pal = pal, values = dominio_colores, opacity = 0.8, title = "Tasa de la causa / 100k hab.", position = "bottomright") %>%
       control_ano(input$p2_ano)
@@ -720,8 +719,7 @@ server_causas <- function(input, output, session) {
                          format(round(mapa_datos$Tasa_std, 1), decimal.mark = ",")) %>%
       lapply(htmltools::HTML)
     leaflet(mapa_datos) %>%
-      addTiles(urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-               attribution = "&copy; OpenStreetMap contributors") %>%
+      tiles_osm() %>%
       addPolygons(fillColor = ~pal(Tasa_std), weight = 1, color = "white", fillOpacity = 0.8, label = etiquetas) %>%
       addLegend(pal = pal, values = dominio, opacity = 0.8, title = "Tasa std / 100k", position = "bottomright") %>%
       control_ano(input$std_ano)
@@ -1066,8 +1064,7 @@ server_causas <- function(input, output, session) {
     etiquetas <- sprintf("<strong>%s</strong><br/>%% sensible: %s %%", mapa_datos$NAME_2,
                          format(round(mapa_datos$Pct, 1), decimal.mark = ",")) %>% lapply(htmltools::HTML)
     leaflet(mapa_datos) %>%
-      addTiles(urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-               attribution = "&copy; OpenStreetMap contributors") %>%
+      tiles_osm() %>%
       addPolygons(fillColor = ~pal(Pct), weight = 1, color = "white",
                   fillOpacity = 0.8, label = etiquetas) %>%
       addLegend(pal = pal, values = dominio_colores, opacity = 0.8,
@@ -1208,8 +1205,7 @@ server_causas <- function(input, output, session) {
                          format(round(mapa_datos$Tasa, 1), decimal.mark = ",")) %>%
       lapply(htmltools::HTML)
     leaflet(mapa_datos) %>%
-      addTiles(urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-               attribution = "&copy; OpenStreetMap contributors") %>%
+      tiles_osm() %>%
       addPolygons(fillColor = ~pal(Ratio), weight = 1, color = "white",
                   fillOpacity = 0.8, label = etiquetas) %>%
       addLegend(pal = pal, values = dominio_colores, opacity = 0.8,

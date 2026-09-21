@@ -152,8 +152,7 @@ server_metricas <- function(input, output, session) {
       lapply(htmltools::HTML)
     
     leaflet(mapa_datos) %>% 
-      addTiles(urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-               attribution = "&copy; OpenStreetMap contributors") %>% 
+      tiles_osm() %>%
       addPolygons(fillColor = ~pal(Valor), weight = 1, color = "white", fillOpacity = 0.8, label = etiquetas) %>%
       addLegend(pal = pal, values = dominio_colores, opacity = 0.8, 
                 title = paste0(input$p3_funcion, "<br/>(", obtener_unidad(input$p3_funcion), ")"), 
@@ -509,8 +508,7 @@ server_metricas <- function(input, output, session) {
                          format(round(mapa_datos$Pct65, 1), decimal.mark = ",")) %>%
       lapply(htmltools::HTML)
     leaflet(mapa_datos) %>%
-      addTiles(urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-               attribution = "&copy; OpenStreetMap contributors") %>%
+      tiles_osm() %>%
       addPolygons(fillColor = ~pal(Pct65), weight = 1, color = "white", fillOpacity = 0.8, label = etiquetas) %>%
       addLegend(pal = pal, values = ~Pct65, opacity = 0.8, title = "% de 65+", position = "bottomright") %>%
       control_ano(input$deme_ano)
@@ -573,8 +571,7 @@ server_metricas <- function(input, output, session) {
                          format(round(mapa_datos$Brecha, 2), decimal.mark = ","),
                          unidad) %>% lapply(htmltools::HTML)
     leaflet(mapa_datos) %>%
-      addTiles(urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-               attribution = "&copy; OpenStreetMap contributors") %>%
+      tiles_osm() %>%
       addPolygons(fillColor = ~pal(Brecha), weight = 1, color = "white", fillOpacity = 0.8, label = etiquetas) %>%
       addLegend(pal = pal, values = ~Brecha, opacity = 0.8, title = paste0("Brecha H-M (", unidad, ")"), position = "bottomright") %>%
       control_ano(input$demb_ano)
@@ -706,8 +703,7 @@ server_metricas <- function(input, output, session) {
                                 "sin dato")) %>%
       lapply(htmltools::HTML)
     leaflet(mapa_datos) %>%
-      addTiles(urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-               attribution = "&copy; OpenStreetMap contributors") %>%
+      tiles_osm() %>%
       addPolygons(fillColor = ~pal(Valor), weight = 1, color = "white", fillOpacity = 0.8, label = etiquetas) %>%
       addLegend(pal = pal, values = dominio, opacity = 0.8, title = "Años de vida", position = "bottomright")
   })

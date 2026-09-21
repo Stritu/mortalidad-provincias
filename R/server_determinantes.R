@@ -97,8 +97,7 @@ server_determinantes <- function(input, output, session) {
                          det_fmt(mapa_datos$Valor, input$det_ind)) %>%
       lapply(htmltools::HTML)
     leaflet(mapa_datos) %>%
-      addTiles(urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-               attribution = "&copy; OpenStreetMap contributors") %>%
+      tiles_osm() %>%
       addPolygons(fillColor = ~pal(Valor), weight = 1, color = "white", fillOpacity = 0.8, label = etiquetas) %>%
       addLegend(pal = pal, values = dominio, opacity = 0.8, title = input$det_ind, position = "bottomright") %>%
       control_ano(input$det_ano)
@@ -249,8 +248,7 @@ server_determinantes <- function(input, output, session) {
                          format(round(mapa_datos$Indice, 1), big.mark = ".", decimal.mark = ",", nsmall = 1)) %>%
       lapply(htmltools::HTML)
     leaflet(mapa_datos) %>%
-      addTiles(urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-               attribution = "&copy; OpenStreetMap contributors") %>%
+      tiles_osm() %>%
       addPolygons(fillColor = ~pal(Indice), weight = 1, color = "white", fillOpacity = 0.8, label = etiquetas) %>%
       addLegend(pal = pal, values = dominio, opacity = 0.8, title = "Índice (0-100)", position = "bottomright") %>%
       control_ano(input$idx_ano)

@@ -710,6 +710,9 @@ copia_causas <- copia_causas %>%
   ) %>%
   filter(is.finite(Tasa))
 
+# Intermedios de lectura ya plegados en copia_*: se liberan.
+rm(list = intersect(c("df_causas_raw", "df_pob_raw"), ls()))
+
 # Carga de Funciones Demográficas
 # Procesado pesado de funciones.csv (73 MB) con caché en disco.
 # sin_fuente_ok = TRUE: en el despliegue viaja solo la caché (ver .rscignore).
@@ -1027,8 +1030,8 @@ apvp_data <- tibble::tibble(
   )
 
 apvp_causas <- sort(unique(apvp_data$Causa))
-apvp_comunidades <- sort(unique(apvp_data$Comunidad))
 apvp_indicadores <- sort(unique(apvp_data$Indicador))
+rm(list = intersect("df_apvp_raw", ls()))
 
 # Defunciones mensuales
 df_meses_raw <- tryCatch(
@@ -1065,6 +1068,7 @@ meses_data$Mes <- factor(meses_data$Mes, levels = orden_meses, ordered = TRUE)
 meses_causas <- sort(unique(as.character(meses_data$Causa)))
 meses_anios <- sort(unique(meses_data$Año))
 meses_sexos <- c("Ambos", "Hombres", "Mujeres")
+rm(list = intersect("df_meses_raw", ls()))
 
 # Defunciones por edad, sexo y comunidad autónoma
 df_edad_com_raw <- tryCatch(
@@ -1105,6 +1109,7 @@ orden_edad_com <- edad_com_data %>%
 
 edad_com_causas <- sort(unique(as.character(edad_com_data$Causa)))
 edad_com_comunidades <- sort(unique(as.character(edad_com_data$Comunidad)))
+rm(list = intersect("df_edad_com_raw", ls()))
 
 # ==============================================================================
 # 2.6. TASAS ESTANDARIZADAS POR EDAD (POBLACIÓN ESTÁNDAR EUROPEA 2013)
@@ -1768,6 +1773,15 @@ control_ano <- function(mapa, ano) {
     html = sprintf("<div class=\"map-year-badge\">%s</div>",
                    htmltools::htmlEscape(as.character(ano)[1])),
     position = "topright"
+  )
+}
+
+# Teselas OSM compartidas por todos los mapas (un solo punto de cambio).
+tiles_osm <- function(mapa) {
+  leaflet::addTiles(
+    mapa,
+    urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution = "&copy; OpenStreetMap contributors"
   )
 }
 

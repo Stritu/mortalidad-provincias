@@ -13,3 +13,6 @@ check("apvp: 19 CCAA", length(unique(apvp_data$Comunidad)) == 19)
 check("ccaa_corto cubre las 19",
       all(!is.na(unname(ccaa_corto[normalizar_ccaa(unique(apvp_data$Comunidad))]))))
 check("tasas causas finitas", all(is.finite(causas_provinciales$Tasa)))
+check("sin intermedios de lectura en memoria",
+      !any(c("df_causas_raw", "df_pob_raw", "df_apvp_raw", "df_meses_raw",
+             "df_edad_com_raw") %in% ls()))

@@ -136,8 +136,7 @@ server_multivariante <- function(input, output, session) {
                          ifelse(is.na(mapa_datos$Cluster), "Sin datos", as.character(mapa_datos$Cluster))) %>%
       lapply(htmltools::HTML)
     leaflet(mapa_datos) %>%
-      addTiles(urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-               attribution = "&copy; OpenStreetMap contributors") %>%
+      tiles_osm() %>%
       addPolygons(fillColor = ~pal(Cluster), weight = 1, color = "white", fillOpacity = 0.8, label = etiquetas) %>%
       addLegend(pal = pal, values = ~Cluster, opacity = 0.8, title = "Cluster", position = "bottomright") %>%
       control_ano(input$pm_ano)
@@ -261,11 +260,4 @@ server_multivariante <- function(input, output, session) {
       arrange(Cluster) %>%
       mutate(across(where(is.numeric), ~ round(.x, 1)))
   }, striped = TRUE, bordered = TRUE, hover = TRUE, spacing = "xs")
-
-  # Forzar renderizado aunque la pestaña no esté activa
-  for (nm in c("pm_info", "pm_kpi_var", "pm_kpi_k", "pm_kpi_n",
-               "pm_scree", "pm_biplot", "pm_mapa", "pm_codo", "pm_perfiles", "pm_tabla",
-               "pm_cor", "pm_perfil")) {
-    outputOptions(output, nm, suspendWhenHidden = FALSE)
-}
 }

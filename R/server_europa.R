@@ -258,8 +258,7 @@ server_europa <- function(input, output, session) {
     ) %>% lapply(htmltools::HTML)
     
     leaflet(datos_mapa) %>%
-      addTiles(urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-               attribution = "&copy; OpenStreetMap contributors") %>%
+      tiles_osm() %>%
       addPolygons(
         fillColor = ~pal(tasa_100k), weight = 1, color = "white", fillOpacity = 0.82,
         label = etiquetas,
