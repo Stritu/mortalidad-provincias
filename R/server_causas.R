@@ -1130,15 +1130,7 @@ server_causas <- function(input, output, session) {
   })
 
   # --- DESIGUALDAD TERRITORIAL (Gini ponderado + brechas vs nacional) ---
-  gini_pond <- function(x, w) {
-    ok <- is.finite(x) & is.finite(w) & w > 0
-    x <- x[ok]
-    w <- w[ok]
-    if (length(x) < 2) return(NA_real_)
-    mu <- sum(w * x) / sum(w)
-    if (!is.finite(mu) || mu == 0) return(NA_real_)
-    sum(outer(w, w) * abs(outer(x, x, `-`))) / (2 * sum(w)^2 * mu)
-  }
+  # gini_pond() vive en global.R (también lo usan los tests).
 
   # FIX: la población se extrae con distinct(Provincia, Sexo) porque viene
   # repetida en cada fila de causa; con "Todas" se suman los capítulos.

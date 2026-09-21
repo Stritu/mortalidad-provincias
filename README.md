@@ -1,5 +1,7 @@
 # Análisis de defunciones — España y Europa
 
+[![tests](https://github.com/Stritu/mortalidad-provincias/actions/workflows/tests.yml/badge.svg)](https://github.com/Stritu/mortalidad-provincias/actions)
+
 App Shiny de mortalidad con datos del INE y Eurostat: 52 provincias × 13 capítulos de causa × 5 años (2018–2022), exceso 2009–2024 y comparación con 35 países europeos.
 
 **Demo:** https://stritu.shinyapps.io/mortalidad-provincias/
@@ -7,7 +9,7 @@ App Shiny de mortalidad con datos del INE y Eurostat: 52 provincias × 13 capít
 ## Qué incluye
 
 - **Resumen general**: portada con hero, titulares calculados y accesos directos.
-- **Causas de defunción**: mapa provincial, estacionalidad, evolución, comparador de provincias y de CCAA, APVP, tasas estandarizadas (ESP-2013), edad y mes, mortalidad evitable, desigualdad territorial (Gini), alertas de atípicos y clusters.
+- **Causas de defunción**: mapa provincial, estacionalidad, evolución, comparador de provincias y de CCAA, APVP, tasas estandarizadas (ESP-2013), edad y mes, mortalidad evitable, desigualdad territorial (Gini), alertas de atípicos e informes Excel por territorio.
 - **Métricas demográficas**: pirámide, envejecimiento, brecha de género, esperanza de vida.
 - **Europa**: mapa, comparador de países, comparación estadística y modelo de efectos fijos con errores cluster por país.
 - **Determinantes**: renta, médicos e índice sintético por CCAA.
@@ -36,3 +38,11 @@ shiny::runApp()
 Los CSV de origen van en la raíz (`causas_defunciones.csv`, `funciones.csv`, `europa.csv`, …). La primera ejecución genera `cache/`.
 
 > `funciones.csv` (70 MB) y `defunciones_edad_provincia.csv` (146 MB) superan el límite de GitHub y no viajan en el repo: la app arranca igualmente desde `cache/*.rds` (incluidos). Solo hacen falta si quieres regenerar las cachés desde cero (fuente: INE).
+
+## Tests
+
+```sh
+Rscript tests/run.R
+```
+
+19 comprobaciones (grano de datos, KPIs 2022, Gini, modelos) sin dependencias extra. También corren en CI con GitHub Actions.

@@ -1,0 +1,27 @@
+Package: mortalidadprovincias
+Title: Analisis de defunciones en Espana y Europa (Shiny)
+Version: 1.0.0
+R: R (>= 4.5.0)
+Imports:
+    bslib,
+    bsicons,
+    cluster,
+    data.table,
+    DT,
+    dplyr,
+    htmltools,
+    leaflet,
+    lmtest,
+    mapSpain,
+    plotly,
+    rnaturalearth,
+    sf,
+    shiny,
+    spdep,
+    stringi,
+    stringr,
+    tibble,
+    tidyr,
+    writexl
+License: MIT
+Encoding: UTF-8

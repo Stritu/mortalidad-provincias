@@ -1770,3 +1770,14 @@ control_ano <- function(mapa, ano) {
     position = "topright"
   )
 }
+
+# Gini ponderado por población (0 = igualdad total). Fórmula exacta O(n²).
+gini_pond <- function(x, w) {
+  ok <- is.finite(x) & is.finite(w) & w > 0
+  x <- x[ok]
+  w <- w[ok]
+  if (length(x) < 2) return(NA_real_)
+  mu <- sum(w * x) / sum(w)
+  if (!is.finite(mu) || mu == 0) return(NA_real_)
+  sum(outer(w, w) * abs(outer(x, x, `-`))) / (2 * sum(w)^2 * mu)
+}
