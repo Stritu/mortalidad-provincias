@@ -627,7 +627,6 @@ server_causas <- function(input, output, session) {
     req(input$papvp_causa, input$papvp_indicador, input$papvp_sexo)
     df <- apvp_data %>%
       filter(Causa == input$papvp_causa, Indicador == input$papvp_indicador)
-    if (input$papvp_comunidad != "Todas") df <- df %>% filter(Comunidad == input$papvp_comunidad)
     if (input$papvp_sexo != "Ambos") df <- df %>% filter(Sexo == input$papvp_sexo)
     df %>% filter(is.finite(Valor))
   })

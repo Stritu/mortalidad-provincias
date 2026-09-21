@@ -160,8 +160,6 @@ ui_causas <- nav_panel(
             width = 290,
             selectInput("papvp_causa", "Causa:", choices = apvp_causas,
                         selected = if(length(apvp_causas)) apvp_causas[1] else character(0)),
-            selectInput("papvp_comunidad", "Comunidad:", choices = c("Todas", apvp_comunidades),
-                        selected = "Todas"),
             selectInput("papvp_indicador", "Indicador:", choices = apvp_indicadores,
                         selected = if(length(apvp_indicadores)) {
                           if("Nº de APVP" %in% apvp_indicadores) "Nº de APVP" else apvp_indicadores[1]
