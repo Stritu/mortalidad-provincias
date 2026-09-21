@@ -5,68 +5,6 @@ ui_regresiones <- nav_panel(
     title = "Regresiones lineales",
     navset_tab(
       nav_panel(
-        title = "Panel europeo: efectos fijos (país, año, causa, sexo)",
-        layout_sidebar(
-          sidebar = sidebar(
-            title = "Configuración",
-            width = 290,
-            selectInput("eur_reg_causa", "Causa:", choices = causas_europa_es,
-                        selected = if (length(causas_europa_raw)) {
-                          causas_europa_raw[ifelse(any(causas_europa_raw != "Total"), which(causas_europa_raw != "Total")[1], 1)]
-                        } else NULL),
-            selectInput("eur_reg_sexo", "Sexo:", choices = sexos_europa_es,
-                        selected = if ("Ambos" %in% sexos_europa_raw) "Ambos" else sexos_europa_raw[1]),
-            checkboxGroupInput("eur_reg_fe", "Efectos fijos:",
-                               choices = c("País" = "pais", "Año" = "anio", "Causa" = "causa", "Sexo" = "sexo"),
-                               selected = c("pais", "anio")),
-            checkboxInput("eur_reg_log", "Log(tasa)", value = FALSE),
-            div(class = "filter-help", HTML(
-              "<b>Modelo:</b> tasa_100k ~ efectos fijos seleccionados. <b>Datos:</b> Eurostat 2018-2022, tasas estandarizadas por 100k hab. <b>N obs:</b> ~9k. <b>Cluster:</b> errores robustos por país."
-            ))
-          ),
-          layout_columns(
-            col_widths = c(4, 4, 4),
-            value_box(title = "R² ajustado", value = textOutput("eur_reg_r2"),
-                      showcase = bsicons::bs_icon("graph-up"), theme = "primary"),
-            value_box(title = "N observaciones", value = textOutput("eur_reg_n"),
-                      showcase = bsicons::bs_icon("database"), theme = "success"),
-            value_box(title = "Países", value = textOutput("eur_reg_paises"),
-                      showcase = bsicons::bs_icon("globe"), theme = "info")
-          ),
-          bslib::card(
-            card_header("Resumen del modelo"),
-            card_body(verbatimTextOutput("eur_reg_summary"))
-          ),
-          bslib::card(
-            card_header("Coeficientes (efectos fijos)"),
-            card_body(DT::DTOutput("eur_reg_coef"))
-          ),
-          bslib::card(
-            card_header("Diagnósticos"),
-            card_body(
-              div(class = "row",
-                div(class = "col-md-6",
-                  card_header("Residuos vs ajustados"),
-                  card_body(plotlyOutput("eur_reg_diag1", height = "350px"))
-                ),
-                div(class = "col-md-6",
-                  card_header("QQ-plot residuos"),
-                  card_body(plotlyOutput("eur_reg_diag2", height = "350px"))
-                )
-              )
-            )
-          ),
-          bslib::card(
-            card_header("Tendencias por país (predichos vs observados)"),
-            card_body(plotlyOutput("eur_reg_trends", height = "500px"))
-          ),
-          bslib::card(
-            card_header("Interpretación"),
-            card_body(HTML("<p>Panel europeo con efectos fijos bidireccionales (país + año por defecto). Controla heterogeneidad no observada por país y tendencias temporales comunes. <b>Errores robustos clusterizados por país</b> (Arellano, 1987). <b>Log(tasa)</b> opcional para estabilizar varianza. No causalidad: correlaciones condicionadas a los efectos fijos.</p>"))
-          )
-        )
-      ),
-      nav_panel(
         title = "Regresión entre causas",
         layout_sidebar(
           sidebar = sidebar(
@@ -141,3 +79,4 @@ ui_regresiones <- nav_panel(
       )
     )
   )
+
