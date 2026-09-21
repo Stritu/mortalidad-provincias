@@ -132,51 +132,6 @@ ui_europa <- nav_panel(
         )
       ),
       nav_panel(
-        title = "Comparación estadística europea",
-        layout_sidebar(
-          sidebar = sidebar(
-            title = "Modelo europeo",
-            width = 280,
-            selectInput("eur_mod_causa", "Causa / grupo de defunción:", choices = causas_europa_es,
-                        selected = if (length(causas_europa_raw)) {
-                          idx <- if (any(causas_europa_raw != "Total")) which(causas_europa_raw != "Total")[1] else 1
-                          causas_europa_raw[idx]
-                        } else NULL),
-            radioButtons("eur_mod_sexo", "Sexo:",
-                         choices = c("Ambos" = "Ambos", "Hombres" = "Hombres", "Mujeres" = "Mujeres"),
-                         selected = "Ambos"),
-            selectInput("eur_mod_anio", "Años:",
-                        choices = c("Todos los años", as.character(sort(unique(europa_agrupada$anio)))),
-                        selected = "Todos los años"),
-            div(class = "filter-help", HTML(
-              "<b>Método:</b> se ajusta un modelo lineal de la tasa de defunciones por país, incluyendo el año para controlar las diferencias temporales. El efecto de <i>país</i> permite comprobar si existen diferencias estadísticamente significativas entre países."
-            )),
-            uiOutput("eur_mod_info")
-          ),
-          layout_columns(
-            col_widths = c(6, 6),
-            bslib::card(card_header("R² del modelo europeo"), card_body(textOutput("eur_mod_r2"))),
-            bslib::card(card_header("¿Existen diferencias entre países?"), card_body(textOutput("eur_mod_validez")))
-          ),
-          bslib::card(
-            card_header("Interpretación del modelo"),
-            card_body(HTML(
-              paste0(
-                "<p>Este análisis compara las <b>tasas de defunción entre países europeos</b> para la causa y sexo seleccionados. Cuando se incluyen varios años, el año se incorpora al modelo para separar, en la medida de lo posible, el efecto temporal del efecto asociado al país.</p>",
-                "<p><b>Hipótesis del efecto país:</b> H<sub>0</sub>: las diferencias medias ajustadas por año entre países son nulas; H<sub>1</sub>: al menos un país presenta una diferencia respecto al resto.</p>",
-                "<p>Con <b>p &lt; 0,05</b> se considera que existe evidencia estadísticamente significativa de diferencias entre países.</p>"
-              )
-            ))
-          ),
-          layout_columns(
-            col_widths = c(6, 6),
-            bslib::card(card_header("Distribución de tasas por país"), card_body(plotlyOutput("eur_mod_boxplot", height = "640px"))),
-            bslib::card(card_header("Resultados del modelo"), card_body(tableOutput("eur_mod_tabla")))
-          ),
-          bslib::card(card_header("Resumen estadístico del modelo"), card_body(verbatimTextOutput("eur_mod_summary")))
-        )
-      ),
-      nav_panel(
         title = "Modelo europeo: efectos fijos",
         layout_sidebar(
           sidebar = sidebar(
@@ -232,6 +187,14 @@ ui_europa <- nav_panel(
             card_header("Tendencias por país (predichos vs observados)"),
             card_body(plotlyOutput("eur_reg_trends", height = "500px"))
           ),
+          layout_columns(
+            col_widths = c(6, 6),
+            bslib::card(card_header("¿Difieren los países? (test F sobre tasas originales)"),
+                        card_body(h4(textOutput("eur_reg_veredicto")),
+                                  HTML("<p class='text-muted mb-0'><small>H0: sin diferencias entre países controlando por año. Veredicto del modelo clásico absorbido de la antigua subpestaña.</small></p>"))),
+            bslib::card(card_header("Distribución de tasas por país"),
+                        card_body(plotlyOutput("eur_reg_boxplot", height = "500px")))
+          ),
           bslib::card(
             card_header("Interpretación"),
             card_body(HTML("<p>Panel europeo con efectos fijos bidireccionales (país + año por defecto). Controla heterogeneidad no observada por país y tendencias temporales comunes. <b>Errores robustos clusterizados por país</b> (Arellano, 1987). <b>Log(tasa)</b> opcional para estabilizar varianza. No causalidad: correlaciones condicionadas a los efectos fijos.</p>"))
@@ -240,4 +203,5 @@ ui_europa <- nav_panel(
       ),
     )
   )
+
 

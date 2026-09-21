@@ -665,134 +665,6 @@ server_europa <- function(input, output, session) {
     format(round(val), big.mark = ".", decimal.mark = ",", scientific = FALSE)
   })
   
-  # ---------------------------------------------------------------------------
-  # MODELO ESTADÍSTICO EUROPEO
-  # Modelo lineal: tasa ~ país + año. Permite comprobar si existen diferencias
-  # entre países controlando por la evolución temporal.
-  # ---------------------------------------------------------------------------
-  datos_modelo_europa <- reactive({
-    req(input$eur_mod_causa, input$eur_mod_sexo, input$eur_mod_anio)
-    
-    # OPT: usa sexo_norm precomputado en europa_agrupada.
-    df <- europa_agrupada %>%
-      mutate(Sexo = sexo_norm) %>%
-      filter(
-        causa_grupo == input$eur_mod_causa,
-        Sexo == input$eur_mod_sexo,
-        is.finite(tasa_100k),
-        is.finite(anio)
-      )
-    
-    if (input$eur_mod_anio != "Todos los años") {
-      df <- df %>% filter(anio == as.numeric(input$eur_mod_anio))
-    }
-    
-    df %>%
-      group_by(pais, anio) %>%
-      summarise(
-        Tasa = if (all(!is.finite(tasa_100k))) NA_real_ else mean(tasa_100k, na.rm = TRUE),
-        .groups = "drop"
-      ) %>%
-      filter(is.finite(Tasa)) %>%
-      mutate(
-        pais = factor(pais),
-        anio = as.numeric(anio)
-      )
-  })
-  
-  modelo_europa <- reactive({
-    df <- datos_modelo_europa()
-    validate(need(nrow(df) >= 5, "No hay suficientes datos para el modelo europeo: se necesitan al menos 5 observaciones."))
-    validate(need(dplyr::n_distinct(df$pais) >= 3, "No hay suficientes países para comparar: se necesitan al menos 3 países."))
-    
-    if (dplyr::n_distinct(df$anio) >= 2) {
-      lm(Tasa ~ pais + anio, data = df)
-    } else {
-      lm(Tasa ~ pais, data = df)
-    }
-  })
-  
-  output$eur_mod_info <- renderUI({
-    req(input$eur_mod_causa, input$eur_mod_sexo, input$eur_mod_anio)
-    df <- datos_modelo_europa()
-    HTML(paste0(
-      "<b>Observaciones:</b> ", nrow(df),
-      " · <b>Países:</b> ", dplyr::n_distinct(df$pais),
-      " · <b>Periodo:</b> ", htmltools::htmlEscape(input$eur_mod_anio),
-      " · <b>Modelo:</b> ", if (dplyr::n_distinct(df$anio) >= 2) "tasa ~ país + año" else "tasa ~ país"
-    ))
-  })
-  
-  output$eur_mod_r2 <- renderText({
-    fit <- modelo_europa()
-    r2 <- summary(fit)$r.squared
-    paste0(round(r2, 4), " (", round(r2 * 100, 2), " % de variabilidad explicada)")
-  })
-  
-  output$eur_mod_validez <- renderText({
-    fit <- modelo_europa()
-    a <- anova(fit)
-    p_pais <- if ("pais" %in% rownames(a) && "Pr(>F)" %in% names(a)) a["pais", "Pr(>F)"] else NA_real_
-    if (!is.finite(p_pais)) {
-      "No evaluable con estos datos (ajuste perfecto o sin grados de libertad residuales)"
-    } else if (p_pais < 0.05) {
-      "Diferencias significativas entre países"
-    } else {
-      "Sin diferencias significativas entre países"
-    }
-  })
-  
-  output$eur_mod_boxplot <- renderPlotly({
-    df <- datos_modelo_europa()
-    validate(need(nrow(df) > 5, "No hay suficientes datos para el modelo europeo."))
-    # Horizontal y ordenado por mediana: con ~30 países el eje X vertical
-    # solapaba los nombres y el gráfico quedaba ilegible.
-    df_plot <- df %>%
-      mutate(País = traducir_pais(as.character(pais))) %>%
-      mutate(País = reorder(País, Tasa, FUN = function(v) median(v, na.rm = TRUE)))
-    plot_ly(df_plot, y = ~País, x = ~Tasa, type = "box", orientation = "h",
-            boxpoints = "outliers",
-            marker = list(color = "#2c3e50"),
-            line = list(color = "#2c3e50"),
-            hovertemplate = "<b>%{y}</b><br>Tasa: %{x:.1f} por 100.000 habitantes<extra></extra>") %>%
-      layout(
-        xaxis = list(title = "Tasa de defunción del grupo (por 100.000 hab.)"),
-        yaxis = list(title = "", automargin = TRUE),
-        hoverlabel = list(bgcolor = "white"),
-        margin = list(l = 185, r = 30, t = 15, b = 55)
-      )
-  })
-  
-  output$eur_mod_tabla <- renderTable({
-    df <- datos_modelo_europa()
-    fit <- modelo_europa()
-    a <- anova(fit)
-    tiene_anio <- dplyr::n_distinct(df$anio) >= 2
-    formula_txt <- if (tiene_anio) "lm(Tasa ~ pais + anio)" else "lm(Tasa ~ pais)"
-    
-    p_pais <- if ("pais" %in% rownames(a) && "Pr(>F)" %in% names(a)) a["pais", "Pr(>F)"] else NA_real_
-    f_pais <- if ("pais" %in% rownames(a) && "F value" %in% names(a)) a["pais", "F value"] else NA_real_
-    
-    f_txt <- if (is.finite(f_pais)) format(round(unname(f_pais), 4), nsmall = 4) else "No evaluable"
-    p_txt <- if (is.finite(p_pais)) format.pval(p_pais, digits = 4, eps = 0.001) else "No evaluable"
-    conclusion <- if (!is.finite(p_pais)) {
-      "No evaluable: el ajuste es esencialmente perfecto o no quedan grados de libertad residuales para contrastar el efecto país."
-    } else if (p_pais < 0.05) {
-      if (tiene_anio) "Se rechaza H0: existen diferencias entre países, controlando por año." else "Se rechaza H0: existen diferencias entre países."
-    } else {
-      if (tiene_anio) "No se rechaza H0: no hay evidencia suficiente de diferencias entre países, controlando por año." else "No se rechaza H0: no hay evidencia suficiente de diferencias entre países."
-    }
-    
-    data.frame(
-      Elemento = c("Modelo", "F del efecto país", "p-valor país", "Conclusión"),
-      Resultado = c(formula_txt, f_txt, p_txt, conclusion),
-      check.names = FALSE
-    )
-  }, striped = TRUE, bordered = TRUE, hover = TRUE)
-  
-  output$eur_mod_summary <- renderPrint({
-    summary(modelo_europa())
-  })
 # ---------------------------------------------------------------------------
   # PANEL EUROPEO: EFECTOS FIJOS (pais, anio, causa_grupo, sexo)
   # tasas_100k ~ efectos fijos seleccionados. Errores robustos cluster país.
@@ -917,6 +789,51 @@ server_europa <- function(input, output, session) {
     df <- datos_eur_reg()
     length(unique(df$pais))
   })
+
+  # Veredicto clásico absorbido de la antigua "Comparación estadística europea":
+  # test F del efecto país sobre tasas originales (independiente del Log).
+  datos_eur_veredicto <- reactive({
+    req(input$eur_reg_causa, input$eur_reg_sexo)
+    df <- europa_agrupada %>%
+      filter(causa_grupo == input$eur_reg_causa, sexo == input$eur_reg_sexo,
+             is.finite(tasa_100k), is.finite(anio)) %>%
+      transmute(pais = factor(pais), anio = as.numeric(anio), Tasa = tasa_100k) %>%
+      filter(is.finite(Tasa))
+    req(nrow(df) >= 5, dplyr::n_distinct(df$pais) >= 3)
+    fit <- if (dplyr::n_distinct(df$anio) >= 2) lm(Tasa ~ pais + anio, data = df) else lm(Tasa ~ pais, data = df)
+    a <- anova(fit)
+    p <- if ("pais" %in% rownames(a) && "Pr(>F)" %in% names(a)) a["pais", "Pr(>F)"] else NA_real_
+    list(p = unname(p), tiene_anio = dplyr::n_distinct(df$anio) >= 2)
+  })
+
+  output$eur_reg_veredicto <- renderText({
+    v <- datos_eur_veredicto()
+    if (!is.finite(v$p)) {
+      "No evaluable con estos datos"
+    } else if (v$p < 0.05) {
+      if (v$tiene_anio) "Sí: diferencias entre países, controlando por año" else "Sí: diferencias entre países"
+    } else {
+      "No: sin evidencia suficiente de diferencias"
+    }
+  })
+
+  output$eur_reg_boxplot <- renderPlotly({
+    req(input$eur_reg_causa, input$eur_reg_sexo)
+    df <- europa_agrupada %>%
+      filter(causa_grupo == input$eur_reg_causa, sexo == input$eur_reg_sexo,
+             is.finite(tasa_100k)) %>%
+      mutate(País = traducir_pais(as.character(pais))) %>%
+      mutate(País = reorder(País, tasa_100k, FUN = function(v) median(v, na.rm = TRUE)))
+    validate(need(nrow(df) > 5, "No hay suficientes datos."))
+    plot_ly(df, y = ~País, x = ~tasa_100k, type = "box", orientation = "h",
+            boxpoints = "outliers",
+            marker = list(color = "#2c3e50"), line = list(color = "#2c3e50"),
+            hovertemplate = "<b>%{y}</b><br>Tasa: %{x:.1f} por 100.000 hab.<extra></extra>") %>%
+      layout(xaxis = list(title = "Tasa (por 100.000 hab.)"),
+             yaxis = list(title = "", automargin = TRUE),
+             hoverlabel = list(bgcolor = "white"),
+             margin = list(l = 185, r = 30, t = 15, b = 55))
+  })
   
   output$eur_reg_summary <- renderPrint({
     summary(modelo_eur_reg())
@@ -986,3 +903,4 @@ output$eur_reg_trends <- renderPlotly({
              margin = list(l = 60, r = 20, t = 20, b = 100))
   })
 }
+

@@ -47,7 +47,7 @@ ui_resumen <- nav_panel(
               tags$li(actionLink("ir_m_pir", "Pirámide de población"), ": estructura del Padrón."),
               tags$li(actionLink("ir_m_env", "Envejecimiento y dependencia"), ": % 65+, índice y tasa."),
               tags$li(actionLink("ir_m_bre", "Brecha de género"), ": diferencias H–M por indicador."),
-              tags$li(actionLink("ir_m_evo", "Evolución temporal"), ": indicadores por CCAA 2018–2022."),
+              tags$li(actionLink("ir_m_evo", "Evolución demográfica"), ": indicadores por CCAA 2018–2022."),
               tags$li(actionLink("ir_m_ev", "Esperanza de vida"), ": por provincia, sexo y edad.")
             ),
             h5("Europa"),
@@ -55,8 +55,7 @@ ui_resumen <- nav_panel(
             tags$ul(
               tags$li(actionLink("ir_e_mapa", "Mapa europeo"), ": foto por país, causa y año."),
               tags$li(actionLink("ir_e_comp", "Comparador de países europeos"), ": dos países frente a la media europea."),
-              tags$li(actionLink("ir_e_mod", "Comparación estadística europea"), ": modelo por países con contraste de hipótesis."),
-              tags$li(actionLink("ir_e_ef", "Modelo europeo: efectos fijos"), ": tasa según país, año, causa y sexo, con errores cluster por país.")
+              tags$li(actionLink("ir_e_ef", "Modelo europeo: efectos fijos"), ": tasa según país, año, causa y sexo, con errores cluster por país; incluye veredicto de diferencias entre países y boxplot.")
             ),
             h5("Determinantes"),
             p("Contexto socioeconómico y sanitario por CCAA (2018–2022)."),

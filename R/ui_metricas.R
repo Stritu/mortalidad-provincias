@@ -216,7 +216,7 @@ ui_metricas <- nav_panel(
         )
       ),
       nav_panel(
-        title = "Evolución temporal",
+        title = "Evolución demográfica",
         layout_sidebar(
           sidebar = sidebar(
             title = "Configuración",
