@@ -78,6 +78,7 @@ ui_regresiones <- nav_panel(
                         selected = { ch <- setdiff(lista_defunciones, "Total"); if (length(ch) > 1) ch[2] else if (length(ch)) ch[1] else NULL }),
             selectInput("p32_ano", "Año:", choices = sort(unique(as.character(causas_provinciales$Año))),
                         selected = if ("2020" %in% as.character(causas_provinciales$Año)) "2020" else sort(unique(as.character(causas_provinciales$Año)))[1]),
+            checkboxInput("p32_animar", "Animar años", value = FALSE),
             radioButtons("p32_sexo", "Sexo:", choices = c("Ambos", "Hombres", "Mujeres"), selected = "Ambos"),
             checkboxInput("p32_log", "Aplicar logaritmo a X e Y", value = FALSE),
             div(class = "filter-help", HTML(

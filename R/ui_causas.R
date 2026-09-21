@@ -10,6 +10,7 @@ ui_causas <- nav_panel(
             title = "Filtros",
             width = 280,
             selectInput("p2_ano", "Año:", choices = sort(unique(copia_causas$Año)), selected = "2020"),
+            checkboxInput("p2_animar", "Animar años", value = FALSE),
             selectInput("p2_defuncion", "Causa de Defunción:", choices = lista_defunciones, selected = lista_defunciones[1]),
             uiOutput("p2_filtro_info"),
             radioButtons("p2_sexo", "Sexo:", choices = c("Ambos", "Hombres", "Mujeres"), selected = "Ambos")
@@ -54,6 +55,7 @@ ui_causas <- nav_panel(
                         selected = if(length(meses_causas)) meses_causas[1] else character(0)),
             selectInput("pmes_ano", "Año:", choices = c("Todos", meses_anios),
                         selected = if(length(meses_anios)) "Todos" else character(0)),
+            checkboxInput("pmes_animar", "Animar años", value = FALSE),
             radioButtons("pmes_sexo", "Sexo:", choices = meses_sexos, selected = "Ambos")
           ),
           layout_columns(
@@ -196,6 +198,7 @@ ui_causas <- nav_panel(
             )) else tagList(
               selectInput("std_ano", "Año:", choices = datos_edad_std$anos,
                           selected = datos_edad_std$anos[1]),
+              checkboxInput("std_animar", "Animar años", value = FALSE),
               radioButtons("std_sexo", "Sexo:", choices = c("Ambos", "Hombres", "Mujeres"), selected = "Ambos"),
               div(class = "filter-help", HTML(
                 "Tasa de <b>mortalidad total</b>: el fichero no trae desglose por causa."
@@ -250,7 +253,8 @@ ui_causas <- nav_panel(
               selectInput("ep_prov", "Provincia:", choices = c("Todas", datos_edadprov$provincias),
                           selected = "Todas"),
               selectInput("ep_ano", "Año:", choices = datos_edadprov$anos,
-                          selected = if ("2022" %in% datos_edadprov$anos) "2022" else datos_edadprov$anos[1])
+                          selected = if ("2022" %in% datos_edadprov$anos) "2022" else datos_edadprov$anos[1]),
+              checkboxInput("ep_animar", "Animar años", value = FALSE)
             )
           ),
           if (is.null(datos_edadprov)) bslib::card(

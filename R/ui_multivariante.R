@@ -8,6 +8,7 @@ ui_multivariante <- nav_panel(
         width = 290,
         selectInput("pm_ano", "Año:", choices = sort(unique(as.character(causas_provinciales$Año))),
                     selected = if ("2022" %in% as.character(causas_provinciales$Año)) "2022" else sort(unique(as.character(causas_provinciales$Año)))[1]),
+        checkboxInput("pm_animar", "Animar años", value = FALSE),
         radioButtons("pm_sexo", "Sexo:", choices = c("Ambos", "Hombres", "Mujeres"), selected = "Ambos"),
         sliderInput("pm_k", "Nº de clusters (k-means):", min = 2, max = 6, value = 3, step = 1),
         div(class = "filter-help", HTML(

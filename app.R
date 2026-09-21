@@ -158,6 +158,24 @@ server <- function(input, output, session) {
   server_regresiones(input, output, session)
   server_exceso(input, output, session)
   server_multivariante(input, output, session)
+
+  # Animación temporal: cada checkbox avanza su selector de año
+  animar_anos(input, session, "det_animar", "det_ano", det_anos)
+  animar_anos(input, session, "idx_animar", "idx_ano", det_anos)
+  animar_anos(input, session, "eur_animar", "eur_anio", sort(unique(as.character(europa_agrupada$anio))))
+  animar_anos(input, session, "eur_comp_animar", "eur_comp_anio", sort(unique(as.character(europa_agrupada$anio))))
+  animar_anos(input, session, "ex_animar", "ex_ano", datos_edadprov$anos)
+  animar_anos(input, session, "p2_animar", "p2_ano", sort(unique(copia_causas$Año)))
+  animar_anos(input, session, "pmes_animar", "pmes_ano", meses_anios)
+  animar_anos(input, session, "std_animar", "std_ano", datos_edad_std$anos)
+  animar_anos(input, session, "ep_animar", "ep_ano", datos_edadprov$anos)
+  animar_anos(input, session, "p3_animar", "p3_ano", c("2018", "2019", "2020", "2021", "2022"))
+  animar_anos(input, session, "p31_animar", "p31_ano_radar", sort(unique(copia_p$Año)))
+  animar_anos(input, session, "demp_animar", "demp_ano", padron_anos)
+  animar_anos(input, session, "deme_animar", "deme_ano", padron_anos)
+  animar_anos(input, session, "demb_animar", "demb_ano", sort(unique(as.character(copia_func$Año))))
+  animar_anos(input, session, "pm_animar", "pm_ano", sort(unique(as.character(causas_provinciales$Año))))
+  animar_anos(input, session, "p32_animar", "p32_ano", sort(unique(as.character(causas_provinciales$Año))))
 }
 
 

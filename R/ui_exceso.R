@@ -13,7 +13,8 @@ ui_exceso <- nav_panel(
                       selected = "Todas"),
           radioButtons("ex_sexo", "Sexo:", choices = c("Ambos", "Hombres", "Mujeres"), selected = "Ambos"),
           selectInput("ex_ano", "Año (mensual):", choices = datos_edadprov$anos,
-                      selected = if ("2020" %in% datos_edadprov$anos) "2020" else datos_edadprov$anos[1])
+                      selected = if ("2020" %in% datos_edadprov$anos) "2020" else datos_edadprov$anos[1]),
+          checkboxInput("ex_animar", "Animar años", value = FALSE)
         )
       ),
       if (is.null(datos_edadprov)) bslib::card(

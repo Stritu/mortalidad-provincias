@@ -110,31 +110,30 @@ normalizar_provincias <- function(col) {
     c("Á", "á", "í", "ó", "é", "ú", "ñ"),
     vectorize_all = FALSE
   )
-  col <- trimws(col)
-  
-  case_match(
-    col,
-    "Coruña, A"               ~ "A Coruña",
-    "Coruña (A)"              ~ "A Coruña",
-    "La Coruña"               ~ "A Coruña",
-    "A Coruna"                ~ "A Coruña",
-    "Araba/Álava"             ~ "Álava",
-    "Araba / Álava"           ~ "Álava",
-    "Alicante/Alacant"        ~ "Alicante",
-    "Balears, Illes"          ~ "Baleares",
-    "Illes Balears"           ~ "Baleares",
-    "Castellón/Castelló"      ~ "Castellón",
-    "Ciudad Real"             ~ "Ciudad Real",
-    "Gipuzkoa"                ~ "Guipúzcoa",
-    "Rioja, La"               ~ "La Rioja",
-    "Rioja"                   ~ "La Rioja",
-    "Palmas, Las"             ~ "Las Palmas",
-    "Santa Cruz de Tenerife"  ~ "Santa Cruz de Tenerife",
-    "Valencia/València"       ~ "Valencia",
-    "Valencia/ValÃ¨ncia"      ~ "Valencia",
-    "Bizkaia"                 ~ "Vizcaya",
-    .default = col
-  )
+  col <- as.character(trimws(col))
+  # OPT: lookup nominal en vez de case_match() (deprecado en dplyr 1.2.0).
+  corr <- c("Coruña, A" = "A Coruña",
+            "Coruña (A)" = "A Coruña",
+            "La Coruña" = "A Coruña",
+            "A Coruna" = "A Coruña",
+            "Araba/Álava" = "Álava",
+            "Araba / Álava" = "Álava",
+            "Alicante/Alacant" = "Alicante",
+            "Balears, Illes" = "Baleares",
+            "Illes Balears" = "Baleares",
+            "Castellón/Castelló" = "Castellón",
+            "Ciudad Real" = "Ciudad Real",
+            "Gipuzkoa" = "Guipúzcoa",
+            "Rioja, La" = "La Rioja",
+            "Rioja" = "La Rioja",
+            "Palmas, Las" = "Las Palmas",
+            "Santa Cruz de Tenerife" = "Santa Cruz de Tenerife",
+            "Valencia/València" = "Valencia",
+            "Valencia/ValÃ¨ncia" = "Valencia",
+            "Bizkaia" = "Vizcaya")
+  out <- unname(corr[col])
+  out[is.na(out)] <- col[is.na(out)]
+  out
 }
 
 # ==============================================================================
@@ -1716,3 +1715,21 @@ pob_prov <- copia_p %>%
       stringsAsFactors = FALSE
     )
   }
+
+# ------------------------------------------------------------------------------
+# Animación temporal: avanza el selector de año mientras el checkbox play
+# está marcado. Uso: animar_anos(input, session, "det_animar", "det_ano", det_anos)
+# ------------------------------------------------------------------------------
+animar_anos <- function(input, session, id_play, id_ano, anos, intervalo = 1200) {
+  anos <- as.character(anos)
+  if (!length(anos)) return(invisible(NULL))
+  observe({
+    req(isTRUE(input[[id_play]]))
+    invalidateLater(intervalo)
+    isolate({
+      i <- match(input[[id_ano]], anos)
+      if (is.na(i)) i <- 0
+      updateSelectInput(session, id_ano, selected = anos[(i %% length(anos)) + 1])
+    })
+  })
+}

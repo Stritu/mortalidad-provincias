@@ -10,6 +10,7 @@ ui_metricas <- nav_panel(
             title = "Filtros demográficos",
             width = 280,
             selectInput("p3_ano", "Año:", choices = c("2018", "2019", "2020", "2021", "2022"), selected = "2020"),
+            checkboxInput("p3_animar", "Animar años", value = FALSE),
             selectInput("p3_funcion", "Métrica Demográfica:", choices = funciones_deseadas, selected = funciones_deseadas[1]),
             selectInput("p3_edad", "Tramo de Edad (Mapa y Tabla):", choices = c("Todos los tramos", lista_edades), selected = "Todos los tramos"),
             uiOutput("p3_filtro_info"),
@@ -70,6 +71,7 @@ ui_metricas <- nav_panel(
             selectInput("p31_ano_radar", "Año de población:",
                         choices = sort(unique(copia_p$Año), decreasing = TRUE),
                         selected = if ("2022" %in% copia_p$Año) "2022" else sort(unique(copia_p$Año), decreasing = TRUE)[1]),
+            checkboxInput("p31_animar", "Animar años", value = FALSE),
             uiOutput("p31_filtro_info"),
             radioButtons("p31_sexo", "Sexo:", choices = c("Ambos", "Hombres", "Mujeres"), selected = "Ambos")
           ),
@@ -120,7 +122,8 @@ ui_metricas <- nav_panel(
               selectInput("demp_prov", "Provincia:", choices = c("Todas", sort(unique(padron_edad$Provincia))),
                           selected = "Todas"),
               selectInput("demp_ano", "Año:", choices = padron_anos,
-                          selected = if ("2022" %in% padron_anos) "2022" else padron_anos[1])
+                          selected = if ("2022" %in% padron_anos) "2022" else padron_anos[1]),
+              checkboxInput("demp_animar", "Animar años", value = FALSE)
             )
           ),
           if (is.null(padron_edad)) bslib::card(
@@ -148,7 +151,8 @@ ui_metricas <- nav_panel(
               "<b>Dataset pendiente.</b> Añade <b>poblacion_edad_provincia.csv</b>."
             )) else tagList(
               selectInput("deme_ano", "Año:", choices = padron_anos,
-                          selected = if ("2022" %in% padron_anos) "2022" else padron_anos[1])
+                          selected = if ("2022" %in% padron_anos) "2022" else padron_anos[1]),
+              checkboxInput("deme_animar", "Animar años", value = FALSE)
             )
           ),
           if (is.null(padron_edad)) bslib::card(
@@ -188,6 +192,7 @@ ui_metricas <- nav_panel(
             width = 280,
             selectInput("demb_ano", "Año:", choices = sort(unique(as.character(copia_func$Año))),
                         selected = if ("2022" %in% as.character(copia_func$Año)) "2022" else sort(unique(as.character(copia_func$Año)))[1]),
+            checkboxInput("demb_animar", "Animar años", value = FALSE),
             selectInput("demb_func", "Indicador:", choices = funciones_deseadas,
                         selected = if ("Esperanza de vida" %in% funciones_deseadas) "Esperanza de vida" else funciones_deseadas[1]),
             div(class = "filter-help", HTML(

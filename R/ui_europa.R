@@ -11,6 +11,7 @@ ui_europa <- nav_panel(
             width = 280,
             selectInput("eur_anio", "Año:", choices = as.character(sort(unique(europa_agrupada$anio), decreasing = TRUE)),
                         selected = as.character(max(europa_agrupada$anio, na.rm = TRUE))),
+            checkboxInput("eur_animar", "Animar años", value = FALSE),
             selectInput("eur_causa", "Causa / grupo de defunción:", choices = causas_europa_es,
                         selected = if (length(causas_europa_raw)) {
                           causas_europa_raw[ifelse(any(causas_europa_raw != "Total"), which(causas_europa_raw != "Total")[1], 1)]
@@ -73,6 +74,7 @@ ui_europa <- nav_panel(
             selectInput("eur_comp_anio", "Año de referencia:",
                         choices = as.character(sort(unique(europa_agrupada$anio), decreasing = TRUE)),
                         selected = if ("2022" %in% as.character(europa_agrupada$anio)) "2022" else as.character(max(europa_agrupada$anio, na.rm = TRUE))),
+            checkboxInput("eur_comp_animar", "Animar años", value = FALSE),
             radioButtons("eur_comp_sexo", "Sexo:",
                          choices = c("Ambos" = "Ambos", "Hombres" = "Hombres", "Mujeres" = "Mujeres"),
                          selected = if ("Ambos" %in% sexos_europa_raw) "Ambos" else sexos_europa_raw[1]),

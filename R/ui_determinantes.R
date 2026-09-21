@@ -13,6 +13,7 @@ ui_determinantes <- nav_panel(
                         selected = if ("Renta neta media por persona" %in% det_indicadores) "Renta neta media por persona" else det_indicadores[1]),
             selectInput("det_ano", "Año:", choices = det_anos,
                         selected = if ("2022" %in% det_anos) "2022" else det_anos[1]),
+            checkboxInput("det_animar", "Animar años", value = FALSE),
             div(class = "filter-help", HTML(
               "<b>Nota:</b> la renta es provincial (se agrega a CCAA ponderando por población); los médicos vienen por CCAA (colegiados no jubilados por 100.000 hab.). Navarra y País Vasco sin renta 2018-2020."
             ))
@@ -54,6 +55,7 @@ ui_determinantes <- nav_panel(
             width = 290,
             selectInput("idx_ano", "Año:", choices = det_anos,
                         selected = if ("2022" %in% det_anos) "2022" else det_anos[1]),
+            checkboxInput("idx_animar", "Animar años", value = FALSE),
             sliderInput("idx_wr", "Peso renta:", min = 0, max = 100, value = 34),
             sliderInput("idx_wm", "Peso médicos:", min = 0, max = 100, value = 33),
             sliderInput("idx_wmo", "Peso mortalidad:", min = 0, max = 100, value = 33),
