@@ -332,6 +332,50 @@ ui_causas <- nav_panel(
                         card_body(DT::DTOutput("pev_tabla")))
           )
         )
+      ),
+      nav_panel(
+        title = "Desigualdad territorial",
+        layout_sidebar(
+          sidebar = sidebar(
+            title = "Filtros",
+            width = 290,
+            selectInput("des_causa", "Causa:", choices = c("Todas", lista_defunciones),
+                        selected = "Todas"),
+            selectInput("des_ano", "Año:", choices = sort(unique(copia_causas$Año)),
+                        selected = if ("2022" %in% copia_causas$Año) "2022" else sort(unique(copia_causas$Año))[1]),
+            radioButtons("des_sexo", "Sexo:", choices = c("Ambos", "Hombres", "Mujeres"), selected = "Ambos"),
+            div(class = "filter-help", HTML(
+              "<b>Gini</b> ponderado por población (0 = igualdad total). <b>P90/P10</b> robusto a Ceuta/Melilla; <b>máx/mín</b> sensible a provincias pequeñas."
+            ))
+          ),
+          layout_columns(
+            col_widths = c(4, 4, 4),
+            value_box(title = "Gini entre provincias", value = textOutput("des_kpi_gini"),
+                      showcase = bsicons::bs_icon("pie-chart"), theme = "primary"),
+            value_box(title = "Ratio P90/P10", value = textOutput("des_kpi_p90"),
+                      showcase = bsicons::bs_icon("arrow-left-right"), theme = "info"),
+            value_box(title = "Ratio máx/mín", value = textOutput("des_kpi_maxmin"),
+                      showcase = bsicons::bs_icon("arrows-expand"), theme = "danger")
+          ),
+          bslib::card(
+            card_header("Interpretación"),
+            card_body(HTML("<p>El <b>mapa de brechas</b> compara cada provincia con la media nacional (rojo = por encima, azul = por debajo). La <b>evolución</b> dice si los territorios convergen (líneas a la baja) o divergen. El Gini pondera por población; los percentiles P90/P10 se calculan entre provincias sin ponderar.</p>"))
+          ),
+          layout_columns(
+            col_widths = c(6, 6),
+            bslib::card(card_header("Brecha de cada provincia frente a la media nacional"),
+                        card_body(padding = 0, leafletOutput("des_mapa", height = "430px"))),
+            bslib::card(card_header("Convergencia 2018–2022 (Gini y ratios)"),
+                        card_body(plotlyOutput("des_evol", height = "430px")))
+          ),
+          layout_columns(
+            col_widths = c(6, 6),
+            bslib::card(card_header("Ranking de brechas (ratio frente a nacional)"),
+                        card_body(plotlyOutput("des_ranking", height = "520px"))),
+            bslib::card(card_header("Tabla de brechas por provincia"),
+                        card_body(DT::DTOutput("des_tabla")))
+          )
+        )
       )
     )
   )

@@ -1121,4 +1121,153 @@ server_causas <- function(input, output, session) {
       DT::formatRound("Defunciones", 0, dec.mark = ",", mark = ".")
   })
 
+  # --- DESIGUALDAD TERRITORIAL (Gini ponderado + brechas vs nacional) ---
+  gini_pond <- function(x, w) {
+    ok <- is.finite(x) & is.finite(w) & w > 0
+    x <- x[ok]
+    w <- w[ok]
+    if (length(x) < 2) return(NA_real_)
+    mu <- sum(w * x) / sum(w)
+    if (!is.finite(mu) || mu == 0) return(NA_real_)
+    sum(outer(w, w) * abs(outer(x, x, `-`))) / (2 * sum(w)^2 * mu)
+  }
+
+  # FIX: la población se extrae con distinct(Provincia, Sexo) porque viene
+  # repetida en cada fila de causa; con "Todas" se suman los capítulos.
+  datos_des <- reactive({
+    req(input$des_ano, input$des_sexo, input$des_causa)
+    df <- causas_provinciales %>% filter(Año == input$des_ano)
+    if (input$des_sexo != "Ambos") df <- df %>% filter(Sexo == input$des_sexo)
+    if (input$des_causa != "Todas") df <- df %>% filter(Defunción == input$des_causa)
+    pob <- df %>%
+      distinct(Provincia, Sexo, Poblacion) %>%
+      group_by(Provincia) %>%
+      summarise(Poblacion = sum(Poblacion, na.rm = TRUE), .groups = "drop")
+    prov <- df %>%
+      group_by(Provincia) %>%
+      summarise(Fallecidos = sum(Fallecidos, na.rm = TRUE), .groups = "drop") %>%
+      left_join(pob, by = "Provincia") %>%
+      mutate(Tasa = if_else(Poblacion > 0, Fallecidos / Poblacion * 100000, NA_real_)) %>%
+      filter(is.finite(Tasa))
+    tasa_nac <- sum(prov$Fallecidos) / sum(prov$Poblacion) * 100000
+    prov %>% mutate(Ratio = Tasa / tasa_nac)
+  }) %>% bindCache(input$des_ano, input$des_sexo, input$des_causa)
+
+  datos_des_evol <- reactive({
+    req(input$des_sexo, input$des_causa)
+    df <- causas_provinciales
+    if (input$des_sexo != "Ambos") df <- df %>% filter(Sexo == input$des_sexo)
+    if (input$des_causa != "Todas") df <- df %>% filter(Defunción == input$des_causa)
+    pob <- df %>%
+      distinct(Año, Año_Num, Provincia, Sexo, Poblacion) %>%
+      group_by(Año, Año_Num, Provincia) %>%
+      summarise(Poblacion = sum(Poblacion, na.rm = TRUE), .groups = "drop")
+    df %>%
+      group_by(Año, Año_Num, Provincia) %>%
+      summarise(Fallecidos = sum(Fallecidos, na.rm = TRUE), .groups = "drop") %>%
+      left_join(pob, by = c("Año", "Año_Num", "Provincia")) %>%
+      mutate(Tasa = if_else(Poblacion > 0, Fallecidos / Poblacion * 100000, NA_real_)) %>%
+      filter(is.finite(Tasa)) %>%
+      group_by(Año, Año_Num) %>%
+      summarise(Gini = gini_pond(Tasa, Poblacion),
+                P90_P10 = unname(stats::quantile(Tasa, 0.9) / stats::quantile(Tasa, 0.1)),
+                Max_Min = max(Tasa) / min(Tasa[Tasa > 0]), .groups = "drop") %>%
+      filter(is.finite(Gini), is.finite(P90_P10), is.finite(Max_Min)) %>%
+      arrange(Año_Num)
+  }) %>% bindCache(input$des_sexo, input$des_causa)
+
+  output$des_kpi_gini <- renderText({
+    df <- datos_des()
+    if (!nrow(df)) return("-")
+    format(round(gini_pond(df$Tasa, df$Poblacion), 3), decimal.mark = ",")
+  })
+
+  output$des_kpi_p90 <- renderText({
+    df <- datos_des()
+    if (!nrow(df)) return("-")
+    format(round(unname(stats::quantile(df$Tasa, 0.9) / stats::quantile(df$Tasa, 0.1)), 2),
+           big.mark = ".", decimal.mark = ",")
+  })
+
+  output$des_kpi_maxmin <- renderText({
+    df <- datos_des()
+    if (!nrow(df)) return("-")
+    format(round(max(df$Tasa) / min(df$Tasa[df$Tasa > 0]), 2),
+           big.mark = ".", decimal.mark = ",")
+  })
+
+  output$des_mapa <- renderLeaflet({
+    df <- datos_des()
+    mapa_datos <- mapa_provincias %>% left_join(df, by = c("NAME_2" = "Provincia"))
+    lim <- suppressWarnings(max(abs(mapa_datos$Ratio - 1), na.rm = TRUE))
+    dominio_colores <- if (!is.finite(lim) || lim == 0) c(0.9, 1.1) else c(1 - lim, 1 + lim)
+    pal <- colorNumeric(palette = PAL_RDBU_REV, domain = dominio_colores, na.color = "#E0E0E0")
+    etiquetas <- sprintf("<strong>%s</strong><br/>Ratio: %s (tasa %s / 100k)",
+                         mapa_datos$NAME_2,
+                         format(round(mapa_datos$Ratio, 2), decimal.mark = ","),
+                         format(round(mapa_datos$Tasa, 1), decimal.mark = ",")) %>%
+      lapply(htmltools::HTML)
+    leaflet(mapa_datos) %>%
+      addTiles(urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+               attribution = "&copy; OpenStreetMap contributors") %>%
+      addPolygons(fillColor = ~pal(Ratio), weight = 1, color = "white",
+                  fillOpacity = 0.8, label = etiquetas) %>%
+      addLegend(pal = pal, values = dominio_colores, opacity = 0.8,
+                title = "Ratio vs nacional", position = "bottomright",
+                labFormat = labelFormat(digits = 2))
+  })
+
+  output$des_evol <- renderPlotly({
+    df <- datos_des_evol()
+    req(nrow(df) > 0)
+    plot_ly(df, x = ~Año_Num) %>%
+      add_trace(y = ~P90_P10, name = "P90/P10", type = "scatter", mode = "lines+markers",
+                line = list(color = "#1a2f47"),
+                marker = list(color = "#1a2f47", line = list(color = "white", width = 1)),
+                hovertemplate = "<b>%{x}</b><br>P90/P10: %{y:.2f}<extra></extra>") %>%
+      add_trace(y = ~Max_Min, name = "Máx/Mín", type = "scatter", mode = "lines+markers",
+                line = list(color = "#E53935"),
+                marker = list(color = "#E53935", line = list(color = "white", width = 1)),
+                hovertemplate = "<b>%{x}</b><br>Máx/Mín: %{y:.2f}<extra></extra>") %>%
+      add_trace(y = ~Gini, name = "Gini", type = "scatter", mode = "lines+markers", yaxis = "y2",
+                line = list(color = "#0E9F8A"),
+                marker = list(color = "#0E9F8A", line = list(color = "white", width = 1)),
+                hovertemplate = "<b>%{x}</b><br>Gini: %{y:.3f}<extra></extra>") %>%
+      layout(xaxis = list(title = "Año", dtick = 1), yaxis = list(title = "Ratios"),
+             yaxis2 = list(title = "Gini", overlaying = "y", side = "right", showgrid = FALSE),
+             legend = list(orientation = "h", y = -0.15),
+             hoverlabel = list(bgcolor = "white"),
+             margin = list(l = 60, r = 60, b = 80, t = 20))
+  })
+
+  output$des_ranking <- renderPlotly({
+    df <- datos_des() %>% arrange(Ratio)
+    req(nrow(df) > 0)
+    lim <- suppressWarnings(max(abs(df$Ratio - 1)))
+    if (!is.finite(lim) || lim == 0) lim <- 0.1
+    plot_ly(df, x = ~Ratio, y = ~reorder(Provincia, Ratio), type = "bar", orientation = "h",
+            marker = list(color = ~Ratio, colorscale = escala_plotly(PAL_RDBU_REV),
+                          cmin = 1 - lim, cmax = 1 + lim, showscale = TRUE,
+                          colorbar = list(title = "Ratio"),
+                          line = list(color = "white", width = 1)),
+            hovertemplate = "<b>%{y}</b><br>Ratio: %{x:.2f}<extra></extra>") %>%
+      layout(xaxis = list(title = "Ratio frente a la media nacional"),
+             yaxis = list(title = ""), hoverlabel = list(bgcolor = "white"),
+             shapes = list(list(type = "line", x0 = 1, x1 = 1, y0 = 0, y1 = 1,
+                                yref = "paper",
+                                line = list(color = "black", dash = "dash"))),
+             margin = list(l = 140, r = 20, b = 60, t = 20))
+  })
+
+  output$des_tabla <- DT::renderDT({
+    tab <- datos_des() %>%
+      transmute(Provincia, Tasa = round(Tasa, 1), Ratio = round(Ratio, 3),
+                Fallecidos) %>%
+      arrange(desc(Ratio))
+    DT::datatable(tab, options = list(pageLength = 17, autoWidth = TRUE, scrollX = TRUE),
+                  rownames = FALSE) %>%
+      DT::formatRound(c("Tasa", "Ratio"), c(1, 3), dec.mark = ",", mark = ".") %>%
+      DT::formatRound("Fallecidos", 0, dec.mark = ",", mark = ".")
+  })
+
 }
