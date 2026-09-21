@@ -959,4 +959,165 @@ server_causas <- function(input, output, session) {
       )
     p
   })
+
+  # --- MORTALIDAD EVITABLE (aproximación por capítulos, sin límite <75) ---
+  cesta_evitable <- c(
+    "Causas externas de mortalidad" = "Prevenible",
+    "Enfermedades infecciosas y parasitarias" = "Prevenible",
+    "Enfermedades del sistema circulatorio" = "Tratable",
+    "Enfermedades del sistema genitourinario" = "Tratable",
+    "Embarazo, parto y puerperio" = "Tratable",
+    "Afecciones originadas en el periodo perinatal" = "Tratable",
+    "Tumores" = "Mixto",
+    "Enfermedades del sistema respiratorio" = "Mixto",
+    "Enfermedades del sistema digestivo" = "Mixto",
+    "Enfermedades endocrinas, nutricionales y metabólicas" = "Mixto"
+  )
+  cesta_palanca <- c(
+    "Prevenible" = "Prevención primaria y salud pública",
+    "Tratable" = "Detección precoz y sistema asistencial",
+    "Mixto" = "Mezcla causas evitables y no evitables",
+    "Resto" = "Sin palanca clara a este nivel de desglose"
+  )
+  cesta_colores <- c("Prevenible" = "#0E9F8A", "Tratable" = "#1a2f47",
+                     "Mixto" = "#E8A838", "Resto" = "#BDBDBD")
+
+  asignar_cesta <- function(defuncion) {
+    cesta <- unname(cesta_evitable[as.character(defuncion)])
+    cesta[is.na(cesta)] <- "Resto"
+    factor(cesta, levels = c("Prevenible", "Tratable", "Mixto", "Resto"))
+  }
+
+  # FIX: la población se extrae con distinct(Provincia, Sexo) porque viene
+  # repetida en cada fila de causa; sumarla por causa la multiplicaría ×17.
+  datos_pev <- reactive({
+    req(input$pev_ano, input$pev_sexo)
+    df <- causas_provinciales %>% filter(Año == input$pev_ano)
+    if (input$pev_sexo != "Ambos") df <- df %>% filter(Sexo == input$pev_sexo)
+    df <- df %>% mutate(Cesta = asignar_cesta(Defunción), Sensible = Cesta != "Resto")
+    pob <- df %>%
+      distinct(Provincia, Sexo, Poblacion) %>%
+      group_by(Provincia) %>%
+      summarise(Poblacion = sum(Poblacion, na.rm = TRUE), .groups = "drop")
+    df %>%
+      group_by(Provincia, Comunidad) %>%
+      summarise(Fall_Sens = sum(Fallecidos[Sensible], na.rm = TRUE),
+                Fall_Tot = sum(Fallecidos, na.rm = TRUE), .groups = "drop") %>%
+      left_join(pob, by = "Provincia") %>%
+      mutate(Pct = if_else(Fall_Tot > 0, Fall_Sens / Fall_Tot * 100, NA_real_),
+             Tasa = if_else(Poblacion > 0, Fall_Sens / Poblacion * 100000, NA_real_)) %>%
+      filter(is.finite(Pct), is.finite(Tasa))
+  }) %>% bindCache(input$pev_ano, input$pev_sexo)
+
+  datos_pev_evol <- reactive({
+    req(input$pev_sexo)
+    df <- causas_provinciales
+    if (input$pev_sexo != "Ambos") df <- df %>% filter(Sexo == input$pev_sexo)
+    df %>%
+      mutate(Cesta = asignar_cesta(Defunción)) %>%
+      group_by(Año, Año_Num, Cesta) %>%
+      summarise(Fall = sum(Fallecidos, na.rm = TRUE), .groups = "drop") %>%
+      group_by(Año, Año_Num) %>%
+      mutate(Pct = Fall / sum(Fall) * 100) %>%
+      ungroup() %>%
+      filter(is.finite(Pct))
+  }) %>% bindCache(input$pev_sexo)
+
+  output$pev_kpi_pct <- renderText({
+    df <- datos_pev()
+    if (!nrow(df)) return("-")
+    paste0(format(round(sum(df$Fall_Sens) / sum(df$Fall_Tot) * 100, 1),
+                  big.mark = ".", decimal.mark = ","), " %")
+  })
+
+  output$pev_kpi_tasa <- renderText({
+    df <- datos_pev()
+    if (!nrow(df)) return("-")
+    paste0(format(round(sum(df$Fall_Sens) / sum(df$Poblacion) * 100000, 1),
+                  big.mark = ".", decimal.mark = ","), " / 100k hab.")
+  })
+
+  output$pev_kpi_max <- renderText({
+    df <- datos_pev() %>%
+      group_by(Comunidad) %>%
+      summarise(Fall_Sens = sum(Fall_Sens), Fall_Tot = sum(Fall_Tot), .groups = "drop") %>%
+      mutate(Pct = Fall_Sens / Fall_Tot * 100) %>%
+      filter(is.finite(Pct)) %>%
+      arrange(desc(Pct))
+    if (!nrow(df)) return("-")
+    paste0(df$Comunidad[1], " (",
+           format(round(df$Pct[1], 1), big.mark = ".", decimal.mark = ","), " %)")
+  })
+
+  output$pev_mapa <- renderLeaflet({
+    df <- datos_pev()
+    mapa_datos <- mapa_provincias %>% left_join(df, by = c("NAME_2" = "Provincia"))
+    val_max <- suppressWarnings(max(mapa_datos$Pct, na.rm = TRUE))
+    dominio_colores <- if (!is.finite(val_max) || val_max == 0) c(0, 1) else c(0, val_max)
+    pal <- colorNumeric(palette = PAL_YLGNBU, domain = dominio_colores, na.color = "#E0E0E0")
+    etiquetas <- sprintf("<strong>%s</strong><br/>%% sensible: %s %%", mapa_datos$NAME_2,
+                         format(round(mapa_datos$Pct, 1), decimal.mark = ",")) %>% lapply(htmltools::HTML)
+    leaflet(mapa_datos) %>%
+      addTiles(urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+               attribution = "&copy; OpenStreetMap contributors") %>%
+      addPolygons(fillColor = ~pal(Pct), weight = 1, color = "white",
+                  fillOpacity = 0.8, label = etiquetas) %>%
+      addLegend(pal = pal, values = dominio_colores, opacity = 0.8,
+                title = "% sensible", position = "bottomright",
+                labFormat = labelFormat(suffix = " %", digits = 1))
+  })
+
+  output$pev_evol <- renderPlotly({
+    df <- datos_pev_evol()
+    req(nrow(df) > 0)
+    p <- plot_ly()
+    for (cesta in c("Prevenible", "Tratable", "Mixto", "Resto")) {
+      d <- df %>% filter(Cesta == cesta) %>% arrange(Año_Num)
+      if (!nrow(d)) next
+      p <- add_trace(p, data = d, x = ~Año_Num, y = ~Pct, name = cesta,
+                     type = "scatter", mode = "lines", stackgroup = "one",
+                     line = list(width = 0.5, color = "white"),
+                     fillcolor = unname(cesta_colores[cesta]),
+                     hovertemplate = paste0("<b>", cesta, " %{x}</b><br>%: %{y:.1f}<extra></extra>"))
+    }
+    p %>% layout(xaxis = list(title = "Año", dtick = 1), yaxis = list(title = "% sobre el total"),
+                 legend = list(orientation = "h", y = -0.15),
+                 hoverlabel = list(bgcolor = "white"),
+                 margin = list(l = 60, r = 20, b = 80, t = 20))
+  })
+
+  output$pev_ranking <- renderPlotly({
+    df <- datos_pev() %>%
+      group_by(Comunidad) %>%
+      summarise(Fall_Sens = sum(Fall_Sens), Poblacion = sum(Poblacion), .groups = "drop") %>%
+      mutate(Tasa = if_else(Poblacion > 0, Fall_Sens / Poblacion * 100000, NA_real_)) %>%
+      filter(is.finite(Tasa)) %>%
+      arrange(Tasa)
+    req(nrow(df) > 0)
+    pal <- colorNumeric(palette = PAL_YLGNBU, domain = dominio_seguro(df$Tasa))
+    plot_ly(df, x = ~Tasa, y = ~reorder(Comunidad, Tasa), type = "bar", orientation = "h",
+            marker = list(color = ~pal(Tasa), line = list(color = "white", width = 1)),
+            hovertemplate = "<b>%{y}</b><br>Tasa: %{x:.1f} / 100k<extra></extra>") %>%
+      layout(xaxis = list(title = "Tasa sensible / 100k hab."), yaxis = list(title = ""),
+             hoverlabel = list(bgcolor = "white"),
+             margin = list(l = 140, r = 20, b = 60, t = 20))
+  })
+
+  output$pev_tabla <- DT::renderDT({
+    req(input$pev_ano, input$pev_sexo)
+    df <- causas_provinciales %>% filter(Año == input$pev_ano)
+    if (input$pev_sexo != "Ambos") df <- df %>% filter(Sexo == input$pev_sexo)
+    total <- sum(df$Fallecidos, na.rm = TRUE)
+    tab <- df %>%
+      mutate(Cesta = asignar_cesta(Defunción)) %>%
+      group_by(Capítulo = Defunción, Cesta) %>%
+      summarise(Defunciones = sum(Fallecidos, na.rm = TRUE), .groups = "drop") %>%
+      mutate(`% total` = round(Defunciones / total * 100, 1),
+             Palanca = unname(cesta_palanca[as.character(Cesta)])) %>%
+      arrange(desc(Defunciones))
+    DT::datatable(tab, options = list(pageLength = 17, autoWidth = TRUE, scrollX = TRUE),
+                  rownames = FALSE) %>%
+      DT::formatRound("% total", 1, dec.mark = ",", mark = ".") %>%
+      DT::formatRound("Defunciones", 0, dec.mark = ",", mark = ".")
+  })
 }

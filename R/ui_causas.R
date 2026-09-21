@@ -290,6 +290,48 @@ ui_causas <- nav_panel(
             )
           )
         )
+      ),
+      nav_panel(
+        title = "Mortalidad evitable",
+        layout_sidebar(
+          sidebar = sidebar(
+            title = "Filtros",
+            width = 290,
+            selectInput("pev_ano", "Año:", choices = sort(unique(copia_causas$Año)),
+                        selected = if ("2022" %in% copia_causas$Año) "2022" else sort(unique(copia_causas$Año))[1]),
+            radioButtons("pev_sexo", "Sexo:", choices = c("Ambos", "Hombres", "Mujeres"), selected = "Ambos"),
+            div(class = "filter-help", HTML(
+              "<b>Aproximación:</b> los ficheros no traen edad, así que no se aplica el límite de 75 años del indicador oficial Eurostat/OCDE."
+            ))
+          ),
+          layout_columns(
+            col_widths = c(4, 4, 4),
+            value_box(title = "% sensible a prevención/sanidad", value = textOutput("pev_kpi_pct"),
+                      showcase = bsicons::bs_icon("shield-plus"), theme = "primary"),
+            value_box(title = "Tasa sensible nacional", value = textOutput("pev_kpi_tasa"),
+                      showcase = bsicons::bs_icon("activity"), theme = "info"),
+            value_box(title = "CCAA con mayor % sensible", value = textOutput("pev_kpi_max"),
+                      showcase = bsicons::bs_icon("arrow-up-circle"), theme = "danger")
+          ),
+          bslib::card(
+            card_header("Interpretación y metodología"),
+            card_body(HTML("<p>Los 17 capítulos de la lista reducida se agrupan en 4 <b>cestas</b> según la palanca que más los mueve: <b>Prevenible</b> (causas externas, infecciosas), <b>Tratable</b> (circulatorio, genitourinario, embarazo, perinatal), <b>Mixto</b> (tumores, respiratorio, digestivo, endocrinas: mezclan causas evitables y no evitables) y <b>Resto</b>. Es una <b>aproximación honesta</b>: el indicador oficial exige causa CIE-3 y edad menor de 75 años, detalle que estos ficheros no traen, así que la cesta mixta incluye también defunciones no evitables.</p>"))
+          ),
+          layout_columns(
+            col_widths = c(6, 6),
+            bslib::card(card_header("% sensible por provincia (prevenible + tratable + mixto)"),
+                        card_body(padding = 0, leafletOutput("pev_mapa", height = "430px"))),
+            bslib::card(card_header("Evolución nacional por cesta (% sobre el total)"),
+                        card_body(plotlyOutput("pev_evol", height = "430px")))
+          ),
+          layout_columns(
+            col_widths = c(6, 6),
+            bslib::card(card_header("Tasa sensible por comunidad (por 100k hab.)"),
+                        card_body(plotlyOutput("pev_ranking", height = "430px"))),
+            bslib::card(card_header("Capítulo → cesta (año y sexo seleccionados)"),
+                        card_body(DT::DTOutput("pev_tabla")))
+          )
+        )
       )
     )
   )
