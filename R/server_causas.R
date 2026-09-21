@@ -628,7 +628,14 @@ server_causas <- function(input, output, session) {
     df <- apvp_data %>%
       filter(Causa == input$papvp_causa, Indicador == input$papvp_indicador)
     if (input$papvp_sexo != "Ambos") df <- df %>% filter(Sexo == input$papvp_sexo)
-    df %>% filter(is.finite(Valor))
+    df %>%
+      mutate(Comunidad = unname(ccaa_corto[normalizar_ccaa(Comunidad)])) %>%
+      filter(!is.na(Comunidad), is.finite(Valor))
+  })
+
+  output$papvp_ranking_title <- renderUI({
+    n <- dplyr::n_distinct(datos_apvp_filtrados()$Comunidad)
+    paste0("Distribución por comunidad autónoma (", n, " de 19 con dato)")
   })
   
   output$papvp_kpi_total <- renderText({

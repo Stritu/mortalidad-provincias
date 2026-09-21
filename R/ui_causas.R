@@ -177,10 +177,10 @@ ui_causas <- nav_panel(
           ),
           bslib::card(
             card_header("Interpretación"),
-            card_body(HTML("<p>Los <b>años potenciales de vida perdidos (APVP)</b> cuantifican el impacto de las defunciones ocurridas a edades relativamente tempranas. Además del número de APVP, el dataset permite consultar su tasa estandarizada y el número medio de APVP.</p>"))
+            card_body(HTML("<p>Los <b>años potenciales de vida perdidos (APVP)</b> cuantifican el impacto de las defunciones ocurridas a edades relativamente tempranas. Además del número de APVP, el dataset permite consultar su tasa estandarizada y el número medio de APVP. Algunas combinaciones de causa e indicador no tienen dato publicado en todas las comunidades y no aparecen en la gráfica.</p>"))
           ),
           bslib::card(
-            card_header("Distribución por comunidad autónoma"),
+            card_header(uiOutput("papvp_ranking_title")),
             card_body(plotlyOutput("papvp_ranking", height = "430px"))
           )
         )

@@ -925,6 +925,17 @@ normalizar_ccaa <- function(x) {
   )
 }
 
+# Nombre corto de CCAA para etiquetas (clave = canónico de normalizar_ccaa).
+ccaa_corto <- c(
+  "Andalucía" = "Andalucía", "Aragón" = "Aragón", "Asturias" = "Asturias",
+  "Canarias" = "Canarias", "Cantabria" = "Cantabria",
+  "Castilla - La Mancha" = "Castilla-La Mancha", "Castilla y León" = "Castilla y León",
+  "Cataluña" = "Cataluña", "Ceuta" = "Ceuta", "Comunidad Valenciana" = "Valencia",
+  "Extremadura" = "Extremadura", "Galicia" = "Galicia", "Islas Baleares" = "Baleares",
+  "La Rioja" = "La Rioja", "Madrid" = "Madrid", "Melilla" = "Melilla",
+  "Murcia" = "Murcia", "Navarra" = "Navarra", "País Vasco" = "País Vasco"
+)
+
 # ==============================================================================
 # 2. MAPA DE ESPAÑA
 # ==============================================================================
