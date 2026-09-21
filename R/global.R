@@ -1748,3 +1748,13 @@ animar_anos <- function(input, session, id_play, id_ano, anos, intervalo = 1200)
     })
   })
 }
+
+# Insignia con el año visible dentro del mapa (útil al animar años).
+control_ano <- function(mapa, ano) {
+  leaflet::addControl(
+    mapa,
+    html = sprintf("<div class=\"map-year-badge\">%s</div>",
+                   htmltools::htmlEscape(as.character(ano)[1])),
+    position = "topright"
+  )
+}

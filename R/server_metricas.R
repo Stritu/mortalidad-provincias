@@ -166,7 +166,8 @@ server_metricas <- function(input, output, session) {
       addPolygons(fillColor = ~pal(Valor), weight = 1, color = "white", fillOpacity = 0.8, label = etiquetas) %>%
       addLegend(pal = pal, values = dominio_colores, opacity = 0.8, 
                 title = paste0(input$p3_funcion, "<br/>(", obtener_unidad(input$p3_funcion), ")"), 
-                position = "bottomright")
+                position = "bottomright") %>%
+      control_ano(input$p3_ano)
   })
   
   output$p3_piramide <- renderPlotly({
@@ -520,7 +521,8 @@ server_metricas <- function(input, output, session) {
       addTiles(urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                attribution = "&copy; OpenStreetMap contributors") %>%
       addPolygons(fillColor = ~pal(Pct65), weight = 1, color = "white", fillOpacity = 0.8, label = etiquetas) %>%
-      addLegend(pal = pal, values = ~Pct65, opacity = 0.8, title = "% de 65+", position = "bottomright")
+      addLegend(pal = pal, values = ~Pct65, opacity = 0.8, title = "% de 65+", position = "bottomright") %>%
+      control_ano(input$deme_ano)
   })
 
   output$deme_ranking <- renderPlotly({
@@ -583,7 +585,8 @@ server_metricas <- function(input, output, session) {
       addTiles(urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                attribution = "&copy; OpenStreetMap contributors") %>%
       addPolygons(fillColor = ~pal(Brecha), weight = 1, color = "white", fillOpacity = 0.8, label = etiquetas) %>%
-      addLegend(pal = pal, values = ~Brecha, opacity = 0.8, title = paste0("Brecha H-M (", unidad, ")"), position = "bottomright")
+      addLegend(pal = pal, values = ~Brecha, opacity = 0.8, title = paste0("Brecha H-M (", unidad, ")"), position = "bottomright") %>%
+      control_ano(input$demb_ano)
   })
 
   output$demb_ranking <- renderPlotly({

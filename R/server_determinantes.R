@@ -104,7 +104,8 @@ server_determinantes <- function(input, output, session) {
       addTiles(urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                attribution = "&copy; OpenStreetMap contributors") %>%
       addPolygons(fillColor = ~pal(Valor), weight = 1, color = "white", fillOpacity = 0.8, label = etiquetas) %>%
-      addLegend(pal = pal, values = dominio, opacity = 0.8, title = input$det_ind, position = "bottomright")
+      addLegend(pal = pal, values = dominio, opacity = 0.8, title = input$det_ind, position = "bottomright") %>%
+      control_ano(input$det_ano)
   })
 
   output$det_evol <- renderPlotly({
@@ -255,7 +256,8 @@ server_determinantes <- function(input, output, session) {
       addTiles(urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                attribution = "&copy; OpenStreetMap contributors") %>%
       addPolygons(fillColor = ~pal(Indice), weight = 1, color = "white", fillOpacity = 0.8, label = etiquetas) %>%
-      addLegend(pal = pal, values = dominio, opacity = 0.8, title = "Índice (0-100)", position = "bottomright")
+      addLegend(pal = pal, values = dominio, opacity = 0.8, title = "Índice (0-100)", position = "bottomright") %>%
+      control_ano(input$idx_ano)
   })
 
   output$idx_ranking <- renderPlotly({

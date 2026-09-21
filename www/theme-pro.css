@@ -140,3 +140,15 @@ img, svg, canvas, video {
   .dataTables_wrapper { font-size: .85rem; }
   .leaflet-control-zoom { margin-top: 40px !important; }
 }
+
+/* ---- Insignia del año dentro de los mapas (animación temporal) ---- */
+.map-year-badge {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--pro-navy);
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid var(--pro-line);
+  border-radius: 8px;
+  padding: 0 14px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}

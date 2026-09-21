@@ -142,7 +142,8 @@ server_multivariante <- function(input, output, session) {
       addTiles(urlTemplate = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                attribution = "&copy; OpenStreetMap contributors") %>%
       addPolygons(fillColor = ~pal(Cluster), weight = 1, color = "white", fillOpacity = 0.8, label = etiquetas) %>%
-      addLegend(pal = pal, values = ~Cluster, opacity = 0.8, title = "Cluster", position = "bottomright")
+      addLegend(pal = pal, values = ~Cluster, opacity = 0.8, title = "Cluster", position = "bottomright") %>%
+      control_ano(input$pm_ano)
   })
 
   # Codo + silueta sobre los k-means precomputados (k = 2..6, espacio PC1-PC2).

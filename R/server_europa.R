@@ -273,7 +273,8 @@ server_europa <- function(input, output, session) {
       ) %>%
       addLegend(pal = pal, values = ~tasa_100k, opacity = 0.85,
                 title = "Tasa de defunción / 100.000 hab.", position = "bottomright") %>%
-      fitBounds(lng1 = -12, lat1 = 34, lng2 = 45, lat2 = 72)
+      fitBounds(lng1 = -12, lat1 = 34, lng2 = 45, lat2 = 72) %>%
+      control_ano(input$eur_anio)
   })
   
   # ---------------------------------------------------------------------------
