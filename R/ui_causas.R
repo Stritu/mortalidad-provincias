@@ -459,6 +459,41 @@ ui_causas <- nav_panel(
                         card_body(DT::DTOutput("cc_tabla")))
           )
         )
+      ),
+      nav_panel(
+        title = "Informes",
+        layout_sidebar(
+          sidebar = sidebar(
+            title = "Informe por territorio",
+            width = 290,
+            selectInput("in_nivel", "Nivel:", choices = c("Provincia", "CCAA"),
+                        selected = "Provincia"),
+            selectInput("in_terr", "Territorio:",
+                        choices = sort(unique(causas_provinciales$Provincia)),
+                        selected = "Madrid"),
+            selectInput("in_ano", "Año:",
+                        choices = sort(unique(copia_causas$Año)),
+                        selected = if ("2022" %in% copia_causas$Año) "2022" else sort(unique(copia_causas$Año))[1]),
+            radioButtons("in_sexo", "Sexo:", choices = c("Ambos", "Hombres", "Mujeres"), selected = "Ambos"),
+            downloadButton("in_descargar", "Descargar Excel", class = "btn-primary"),
+            div(class = "filter-help", HTML(
+              "El Excel trae 3 hojas: <b>Resumen</b> (KPIs), <b>Por causa</b> (capítulos con ratio nacional) y <b>Evolución</b> (2018–2022 con nacional)."
+            ))
+          ),
+          layout_columns(
+            col_widths = c(4, 4, 4),
+            value_box(title = "Fallecidos", value = textOutput("in_kpi_fall"),
+                      showcase = bsicons::bs_icon("heartbreak"), theme = "primary"),
+            value_box(title = "Tasa / 100k", value = textOutput("in_kpi_tasa"),
+                      showcase = bsicons::bs_icon("activity"), theme = "info"),
+            value_box(title = "Primera causa", value = textOutput("in_kpi_top"),
+                      showcase = bsicons::bs_icon("exclamation-circle"), theme = "danger")
+          ),
+          bslib::card(
+            card_header("Vista previa: tabla por causa"),
+            card_body(DT::DTOutput("in_tabla"))
+          )
+        )
       )
     )
   )

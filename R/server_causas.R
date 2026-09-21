@@ -1573,4 +1573,143 @@ server_causas <- function(input, output, session) {
                       dec.mark = ",", mark = ".")
   })
 
+  # --- INFORMES EXCEL POR TERRITORIO ---
+  observe({
+    req(input$in_nivel)
+    vals <- if (input$in_nivel == "CCAA") sort(unique(causas_provinciales$Comunidad)) else sort(unique(causas_provinciales$Provincia))
+    sel <- if (input$in_nivel == "CCAA") {
+      if ("Madrid" %in% vals) "Madrid" else vals[1]
+    } else {
+      if ("Madrid" %in% vals) "Madrid" else vals[1]
+    }
+    updateSelectInput(session, "in_terr", choices = vals, selected = sel)
+  })
+
+  # FIX: población con distinct por venir repetida en cada fila de causa.
+  datos_in <- reactive({
+    req(input$in_nivel, input$in_terr, input$in_ano, input$in_sexo)
+    df <- causas_provinciales %>% filter(Año == input$in_ano)
+    if (input$in_sexo != "Ambos") df <- df %>% filter(Sexo == input$in_sexo)
+    geo <- if (input$in_nivel == "CCAA") "Comunidad" else "Provincia"
+    pob <- df %>%
+      distinct(Año, Año_Num, Provincia, Comunidad, Sexo, Poblacion) %>%
+      group_by(Año, Año_Num, Comunidad, Provincia) %>%
+      summarise(P = sum(Poblacion, na.rm = TRUE), .groups = "drop")
+    pob_peer <- pob %>%
+      group_by(.data[[geo]]) %>%
+      summarise(P = sum(P, na.rm = TRUE), .groups = "drop")
+    pn <- sum(pob_peer$P)
+    sel <- df %>% filter(.data[[geo]] == input$in_terr)
+    p_sel <- sum(pob_peer$P[pob_peer[[geo]] == input$in_terr], na.rm = TRUE)
+    f_sel <- sum(sel$Fallecidos, na.rm = TRUE)
+    cap <- sel %>%
+      group_by(Defunción) %>%
+      summarise(F = sum(Fallecidos, na.rm = TRUE), .groups = "drop") %>%
+      mutate(Tasa = if (p_sel > 0) F / p_sel * 100000 else NA_real_,
+             Pct = if (f_sel > 0) F / f_sel * 100 else NA_real_) %>%
+      filter(is.finite(Tasa))
+    nac <- df %>%
+      group_by(Defunción) %>%
+      summarise(Fn = sum(Fallecidos, na.rm = TRUE), .groups = "drop") %>%
+      mutate(Tasa_nac = Fn / pn * 100000)
+    cap <- cap %>%
+      left_join(nac %>% select(Defunción, Tasa_nac), by = "Defunción") %>%
+      mutate(Ratio = if_else(Tasa_nac > 0, Tasa / Tasa_nac, NA_real_)) %>%
+      arrange(desc(F))
+    tot_peer <- df %>%
+      group_by(.data[[geo]]) %>%
+      summarise(F = sum(Fallecidos, na.rm = TRUE), .groups = "drop") %>%
+      left_join(pob_peer, by = geo) %>%
+      mutate(Tasa = if_else(P > 0, F / P * 100000, NA_real_)) %>%
+      filter(is.finite(Tasa)) %>% arrange(desc(Tasa))
+    evo_sel <- df %>%
+      filter(.data[[geo]] == input$in_terr) %>%
+      group_by(Año, Año_Num) %>%
+      summarise(F = sum(Fallecidos, na.rm = TRUE), .groups = "drop")
+    evo_pob <- df %>%
+      distinct(Año, Año_Num, Provincia, Comunidad, Sexo, Poblacion) %>%
+      group_by(Año, Año_Num, Comunidad, Provincia) %>%
+      summarise(P = sum(Poblacion, na.rm = TRUE), .groups = "drop") %>%
+      group_by(Año, Año_Num) %>%
+      summarise(Pt = sum(P, na.rm = TRUE),
+                Ps = sum(P[(if (geo == "Comunidad") Comunidad else Provincia) == input$in_terr], na.rm = TRUE),
+                .groups = "drop")
+    evo <- evo_sel %>%
+      left_join(df %>% group_by(Año, Año_Num) %>%
+                  summarise(Fn = sum(Fallecidos, na.rm = TRUE), .groups = "drop"),
+                by = c("Año", "Año_Num")) %>%
+      left_join(evo_pob, by = c("Año", "Año_Num")) %>%
+      transmute(Año, Fallecidos = F,
+                Tasa = if_else(Ps > 0, F / Ps * 100000, NA_real_),
+                Tasa_nacional = if_else(Pt > 0, Fn / Pt * 100000, NA_real_)) %>%
+      filter(is.finite(Tasa)) %>% arrange(Año)
+    list(cap = cap, tot_peer = tot_peer, f_sel = f_sel, p_sel = p_sel,
+         tasa = if (p_sel > 0) f_sel / p_sel * 100000 else NA_real_,
+         tasa_nac = if (pn > 0) sum(df$Fallecidos, na.rm = TRUE) / pn * 100000 else NA_real_,
+         evo = evo)
+  }) %>% bindCache(input$in_nivel, input$in_terr, input$in_ano, input$in_sexo)
+
+  output$in_kpi_fall <- renderText({
+    d <- datos_in()
+    format(round(d$f_sel, 0), big.mark = ".", decimal.mark = ",", scientific = FALSE)
+  })
+
+  output$in_kpi_tasa <- renderText({
+    d <- datos_in()
+    if (!is.finite(d$tasa)) return("-")
+    paste0(format(round(d$tasa, 1), big.mark = ".", decimal.mark = ","),
+           " (nac: ", format(round(d$tasa_nac, 1), big.mark = ".", decimal.mark = ","), ")")
+  })
+
+  output$in_kpi_top <- renderText({
+    d <- datos_in()
+    if (!nrow(d$cap)) return("-")
+    paste0(substr(d$cap$Defunción[1], 1, 30), " (",
+           format(round(d$cap$F[1], 0), big.mark = ".", decimal.mark = ","), ")")
+  })
+
+  output$in_tabla <- DT::renderDT({
+    tab <- datos_in()$cap %>%
+      transmute(Capítulo = Defunción, Fallecidos = F, Tasa = round(Tasa, 1),
+                `% total` = round(Pct, 1), `Ratio nacional` = round(Ratio, 3))
+    DT::datatable(tab, options = list(pageLength = 13, autoWidth = TRUE, scrollX = TRUE),
+                  rownames = FALSE) %>%
+      DT::formatRound(c("Tasa", "% total", "Ratio nacional"), c(1, 1, 3),
+                      dec.mark = ",", mark = ".") %>%
+      DT::formatRound("Fallecidos", 0, dec.mark = ",", mark = ".")
+  })
+
+  output$in_descargar <- downloadHandler(
+    filename = function() {
+      base <- stringi::stri_trans_general(input$in_terr, "Latin-ASCII")
+      base <- gsub("[^A-Za-z0-9]+", "_", trimws(base))
+      paste0("informe_", tolower(input$in_nivel), "_", base, "_",
+             gsub("[^0-9]", "", input$in_ano), ".xlsx")
+    },
+    content = function(file) {
+      d <- datos_in()
+      puesto <- match(input$in_terr, d$tot_peer[[if (input$in_nivel == "CCAA") "Comunidad" else "Provincia"]])
+      resumen <- data.frame(
+        Indicador = c("Territorio", "Nivel", "Año", "Sexo", "Fallecidos", "Población",
+                      "Tasa por 100k", "Tasa nacional por 100k", "Primera causa",
+                      "Fallecidos primera causa", "Puesto por tasa"),
+        Valor = c(input$in_terr, input$in_nivel, input$in_ano, input$in_sexo,
+                  round(d$f_sel, 0), round(d$p_sel, 0),
+                  round(d$tasa, 1), round(d$tasa_nac, 1),
+                  if (nrow(d$cap)) d$cap$Defunción[1] else "-",
+                  if (nrow(d$cap)) round(d$cap$F[1], 0) else NA_real_,
+                  if (!is.na(puesto)) paste0(puesto, " de ", nrow(d$tot_peer)) else "-"),
+        stringsAsFactors = FALSE
+      )
+      por_causa <- as.data.frame(d$cap %>% transmute(
+        Capitulo = Defunción, Fallecidos = F, Tasa_100k = round(Tasa, 1),
+        Pct_total = round(Pct, 1), Ratio_nacional = round(Ratio, 3)))
+      evolucion <- as.data.frame(d$evo %>% transmute(
+        Ano = Año, Fallecidos = F, Tasa_100k = round(Tasa, 1),
+        Tasa_nacional_100k = round(Tasa_nacional, 1)))
+      writexl::write_xlsx(list(Resumen = resumen, Por_causa = por_causa,
+                               Evolucion = evolucion), path = file)
+    }
+  )
+
 }
