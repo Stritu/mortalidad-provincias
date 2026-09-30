@@ -560,7 +560,7 @@ ui_causas <- nav_panel(
             value_box(title = "Años analizados", value = textOutput("st_kpi_anos"),
                       showcase = bsicons::bs_icon("calendar"), theme = "primary"),
             value_box(title = "Provincias con cluster", value = textOutput("st_kpi_provs"),
-                      showcase = bsicons::bs_icon("map-pin"), theme = "info"),
+                      showcase = bsicons::bs_icon("pin"), theme = "info"),
             value_box(title = "Hotspots totales", value = textOutput("st_kpi_hot"),
                       showcase = bsicons::bs_icon("fire"), theme = "danger")
           ),
