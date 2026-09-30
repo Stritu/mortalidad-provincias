@@ -1809,7 +1809,7 @@ server_causas <- function(input, output, session) {
     nb <- spdep::poly2nb(provs, queen = TRUE)
     names(nb) <- provs$NAME_2
     nb
-  }) %>% bindCache()
+  }) %>% bindCache("vecinos_reina")
 
   datos_st <- reactive({
     req(input$st_causa, input$st_sexo)
