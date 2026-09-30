@@ -1695,9 +1695,197 @@ server_causas <- function(input, output, session) {
       evolucion <- as.data.frame(d$evo %>% transmute(
         Ano = Año, Fallecidos = F, Tasa_100k = round(Tasa, 1),
         Tasa_nacional_100k = round(Tasa_nacional, 1)))
+      evolucion <- as.data.frame(d$evo %>% transmute(
+        Ano = Año, Fallecidos = F, Tasa_100k = round(Tasa, 1),
+        Tasa_nacional_100k = round(Tasa_nacional, 1)))
       writexl::write_xlsx(list(Resumen = resumen, Por_causa = por_causa,
                                Evolucion = evolucion), path = file)
     }
   )
+
+  # ---- PREDICCIÓN Y ALERTAS (ETS + Pettitt) ----
+  # Prepara serie temporal para una provincia+causa
+  datos_fc_serie <- reactive({
+    req(input$fc_causa, input$fc_provincia, input$fc_sexo)
+    geo <- "Provincia"
+    df <- causas_provinciales %>%
+      filter(Defunción == input$fc_causa, .data[[geo]] == input$fc_provincia)
+    if (input$fc_sexo != "Ambos") df <- df %>% filter(Sexo == input$fc_sexo)
+    df %>%
+      group_by(Año_Num) %>%
+      summarise(Valor = sum(Fallecidos) / sum(Poblacion) * 100000, .groups = "drop") %>%
+      filter(is.finite(Valor)) %>%
+      arrange(Año_Num)
+  }) %>% bindCache(input$fc_causa, input$fc_provincia, input$fc_sexo)
+
+  # Predicción ETS
+  datos_fc_pred <- reactive({
+    s <- datos_fc_serie()
+    req(nrow(s) >= 5)
+    predecir_serie(s, h = input$fc_horizonte)
+  }) %>% bindCache(input$fc_causa, input$fc_provincia, input$fc_sexo, input$fc_horizonte)
+
+  # Test de Pettitt
+  datos_fc_pettitt <- reactive({
+    s <- datos_fc_serie()
+    req(nrow(s) >= 6)
+    pettitt_test(s$Valor)
+  }) %>% bindCache(input$fc_causa, input$fc_provincia, input$fc_sexo)
+
+  # KPIs
+  output$fc_kpi_actual <- renderText({
+    s <- datos_fc_serie()
+    if (!nrow(s)) return("-")
+    ult <- tail(s, 1)
+    paste0(format(round(ult$Valor, 1), decimal.mark = ","), " / 100k")
+  })
+
+  output$fc_kpi_final <- renderText({
+    p <- datos_fc_pred()
+    pred <- p %>% filter(Tipo == "Predicho")
+    if (!nrow(pred)) return("-")
+    ult <- tail(pred, 1)
+    paste0(format(round(ult$Valor, 1), decimal.mark = ","), " / 100k")
+  })
+
+  output$fc_kpi_pettitt <- renderText({
+    pt <- datos_fc_pettitt()
+    if (is.na(pt$cambio)) return("No hay datos")
+    if (pt$p_valor < 0.05) {
+      paste0("Sí (año ", pt$cambio, ", p=", format.pval(pt$p_valor, digits=2), ")")
+    } else {
+      "No detectado"
+    }
+  })
+
+  # Serie con predicción
+  output$fc_serie <- renderPlotly({
+    df <- datos_fc_pred()
+    req(nrow(df) > 0)
+    obs <- df %>% filter(Tipo == "Observado")
+    pred <- df %>% filter(Tipo == "Predicho")
+    p <- plot_ly()
+    p <- add_trace(p, data = obs, x = ~Año_Num, y = ~Valor, name = "Observado",
+                   type = "scatter", mode = "lines+markers",
+                   line = list(color = var(--pro-navy), width = 2.5),
+                   marker = list(line = list(color = "white", width = 1)),
+                   hovertemplate = "<b>%{x}</b><br>Tasa: %{y:.1f}<extra></extra>")
+    if (nrow(pred) > 0) {
+      p <- add_trace(p, data = pred, x = ~Año_Num, y = ~Valor, name = "Predicho",
+                     type = "scatter", mode = "lines+markers",
+                     line = list(color = var(--pro-teal), width = 2.5, dash = "dash"),
+                     marker = list(line = list(color = "white", width = 1)),
+                     hovertemplate = "<b>%{x}</b><br>Predicción: %{y:.1f}<extra></extra>")
+      if (isTRUE(input$fc_mostrar_ic) && all(c("Li", "Ls") %in% names(pred))) {
+        p <- add_ribbons(p, data = pred, x = ~Año_Num, ymin = ~Li, ymax = ~Ls,
+                         name = "IC 95%", fillcolor = "rgba(20, 184, 166, 0.2)",
+                         line = list(color = "transparent"),
+                         hovertemplate = "IC 95%: %{ymin:.1f} – %{ymax:.1f}<extra></extra>")
+      }
+    }
+    p %>% layout(
+      xaxis = list(title = "Año", dtick = 1),
+      yaxis = list(title = "Tasa / 100k hab."),
+      legend = list(orientation = "h", y = -0.15),
+      hoverlabel = list(bgcolor = "white"),
+      margin = list(l = 60, r = 20, b = 80, t = 20)
+    )
+  })
+
+  output$fc_pettitt_texto <- renderText({
+    pt <- datos_fc_pettitt()
+    if (is.na(pt$cambio)) return("Serie demasiado corta para el test (mínimo 6 años).")
+    paste0("Estadístico U: ", format(round(pt$estadistico, 1), decimal.mark = ","),
+           "\nAño de cambio estimado: ", pt$cambio,
+           "\np-valor: ", format.pval(pt$p_valor, digits = 3),
+           "\n", if (pt$p_valor < 0.05) "⚠ CAMBIO ESTRUCTURAL DETECTADO (p < 0.05)" else "Sin cambio estructural significativo (p ≥ 0.05)")
+  })
+
+  # ---- CLUSTERS ESPACIO-TEMPORALES (Local Moran I) ----
+  # Vecindad reina precomputada
+  vecinos_reina <- reactive({
+    req(mapSpain::esp_get_prov())
+    provs <- mapSpain::esp_get_prov()
+    nb <- spdep::poly2nb(provs, queen = TRUE)
+    names(nb) <- provs$NAME_2
+    nb
+  }) %>% bindCache()
+
+  datos_st <- reactive({
+    req(input$st_causa, input$st_sexo)
+    df <- causas_provinciales %>%
+      filter(Defunción == input$st_causa)
+    if (input$st_sexo != "Ambos") df <- df %>% filter(Sexo == input$st_sexo)
+    df %>%
+      group_by(Año_Num, Provincia) %>%
+      summarise(Tasa = sum(Fallecidos) / sum(Poblacion) * 100000, .groups = "drop") %>%
+      filter(is.finite(Tasa))
+  }) %>% bindCache(input$st_causa, input$st_sexo)
+
+  datos_st_clusters <- reactive({
+    d <- datos_st()
+    req(nrow(d) > 0)
+    nb <- vecinos_reina()
+    scan_espacio_temporal(d, nb, alpha = input$st_alpha)
+  }) %>% bindCache(input$st_causa, input$st_sexo, input$st_alpha)
+
+  output$st_kpi_anos <- renderText({
+    d <- datos_st()
+    if (!nrow(d)) return("-")
+    paste0(min(d$Año_Num), "–", max(d$Año_Num), " (", length(unique(d$Año_Num)), " años)")
+  })
+
+  output$st_kpi_provs <- renderText({
+    cl <- datos_st_clusters()
+    if (!nrow(cl)) return("0")
+    format(dplyr::n_distinct(cl$Provincia[cl$p_valor < input$st_alpha]),
+           big.mark = ".", decimal.mark = ",")
+  })
+
+  output$st_kpi_hot <- renderText({
+    cl <- datos_st_clusters()
+    if (!nrow(cl)) return("0")
+    hot <- cl %>% filter(p_valor < input$st_alpha, tipo == "alto")
+    format(nrow(hot), big.mark = ".", decimal.mark = ",")
+  })
+
+  output$st_mapa <- renderLeaflet({
+    cl <- datos_st_clusters()
+    req(nrow(cl) > 0)
+    a <- unique(cl$Año_Num)
+    a_sel <- input$st_ano_map %||% max(a)
+    df_map <- cl %>% filter(Año_Num == a_sel, p_valor < input$st_alpha)
+    mapa_datos <- mapa_provincias %>% left_join(df_map, by = c("NAME_2" = "Provincia"))
+    pal <- colorFactor(
+      palette = c("alto" = "#ef4444", "bajo" = "#3b82f6"),
+      domain = c("alto", "bajo"),
+      na.color = "#E0E0E0"
+    )
+    etiquetas <- sprintf("<strong>%s</strong><br/>Tipo: %s<br/>Z: %.2f<br/>p: %.3f",
+                         mapa_datos$NAME_2,
+                         ifelse(is.na(mapa_datos$tipo), "Sin cluster", mapa_datos$tipo),
+                         mapa_datos$Z,
+                         mapa_datos$p_valor) %>% lapply(htmltools::HTML)
+    leaflet(mapa_datos) %>%
+      tiles_osm() %>%
+      addPolygons(fillColor = ~pal(tipo), weight = 1, color = "white",
+                  fillOpacity = 0.8, label = etiquetas) %>%
+      addLegend(pal = pal, values = c("alto", "bajo"), opacity = 0.8,
+                title = "Cluster", position = "bottomright") %>%
+      addControl(html = sprintf("<div class='map-year-badge'>%s</div>", a_sel), position = "topright")
+  })
+
+  output$st_tabla <- DT::renderDT({
+    cl <- datos_st_clusters()
+    req(nrow(cl) > 0)
+    tab <- cl %>%
+      filter(p_valor < input$st_alpha) %>%
+      mutate(Z = round(Z, 2), p_valor = round(p_valor, 4)) %>%
+      arrange(Año_Num, desc(abs(Z))) %>%
+      select(Año_Num, Provincia, tipo, Z, p_valor)
+    DT::datatable(tab, options = list(pageLength = 15, autoWidth = TRUE, scrollX = TRUE),
+                  rownames = FALSE) %>%
+      DT::formatRound(c("Z", "p_valor"), c(2, 4), dec.mark = ",", mark = ".")
+  })
 
 }

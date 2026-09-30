@@ -1785,6 +1785,77 @@ tiles_osm <- function(mapa) {
   )
 }
 
+# ---- PREDICCIÓN TEMPORAL (ETS simple vía forecast si está disponible) ----
+predecir_serie <- function(serie, h = 3, nivel = 0.95) {
+  if (!requireNamespace("forecast", quietly = TRUE) || nrow(serie) < 5) {
+    return(data.frame(Año_Num = integer(), Valor = numeric(), Tipo = character(),
+                      Li = numeric(), Ls = numeric()))
+  }
+  ts_obj <- stats::ts(serie$Valor, start = min(serie$Año_Num), frequency = 1)
+  fit <- tryCatch(forecast::ets(ts_obj), error = function(e) NULL)
+  if (is.null(fit)) return(data.frame())
+  fc <- forecast::forecast(fit, h = h, level = nivel * 100)
+  pred <- data.frame(
+    Año_Num = max(serie$Año_Num) + seq_len(h),
+    Valor = as.numeric(fc$mean),
+    Tipo = "Predicho",
+    Li = as.numeric(fc$lower[, 1]),
+    Ls = as.numeric(fc$upper[, 1]),
+    stringsAsFactors = FALSE
+  )
+  obs <- data.frame(
+    Año_Num = serie$Año_Num,
+    Valor = serie$Valor,
+    Tipo = "Observado",
+    Li = NA_real_,
+    Ls = NA_real_,
+    stringsAsFactors = FALSE
+  )
+  rbind(obs, pred)
+}
+
+# ---- DETECCIÓN DE CAMBIO DE REGIMEN (Pettitt test simple) ----
+pettitt_test <- function(x) {
+  n <- length(x)
+  if (n < 6) return(list(cambio = NA, p_valor = NA, estadistico = NA))
+  k_seq <- 2:(n - 1)
+  U <- sapply(k_seq, function(k) {
+    sum(sapply(1:k, function(i) sum(sign(x[i] - x[(k + 1):n]))))
+  })
+  K <- which.max(abs(U)) + 1
+  U_max <- max(abs(U))
+  p_valor <- 2 * exp((-6 * U_max^2) / (n^3 + n^2))
+  list(cambio = K, p_valor = p_valor, estadistico = U_max)
+}
+
+# ---- CLUSTER ESPACIO-TEMPORAL (scan statistic simple) ----
+scan_espacio_temporal <- function(df, vecinos, alpha = 0.05) {
+  if (!requireNamespace("spdep", quietly = TRUE)) return(data.frame())
+  provs <- unique(df$Provincia)
+  años <- sort(unique(df$Año_Num))
+  res <- list()
+  for (a in años) {
+    d <- df[df$Año_Num == a, ]
+    tasas <- setNames(d$Tasa, d$Provincia)
+    tasas <- tasas[provs]
+    if (any(is.na(tasas))) next
+    nb <- vecinos[provs]
+    lw <- spdep::nb2listw(nb, style = "B", zero.policy = TRUE)
+    moran_local <- spdep::localmoran(tasas, lw, zero.policy = TRUE)
+    tmp <- data.frame(
+      Provincia = provs,
+      Año_Num = a,
+      Z = moran_local[, "Z.Ii"],
+      p_valor = moran_local[, "Pr(z != E(Ii))"],
+      tipo = ifelse(moran_local[, "Ii"] > 0, "alto", "bajo"),
+      stringsAsFactors = FALSE
+    )
+    res[[as.character(a)]] <- tmp
+  }
+  if (length(res) == 0) return(data.frame())
+  do.call(rbind, res)
+}
+
 # Gini ponderado por población (0 = igualdad total). Fórmula exacta O(n²).
 gini_pond <- function(x, w) {
   ok <- is.finite(x) & is.finite(w) & w > 0

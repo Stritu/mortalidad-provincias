@@ -1,5 +1,5 @@
-/* Paleta profesional de la app (solo chrome: navbar, pestañas, sidebar, tarjetas).
-   Los gráficos no se tocan. Carga después del tema Flatly. */
+﻿/* Paleta profesional de la app (solo chrome: navbar, pestanas, sidebar, tarjetas).
+   Los graficos no se tocan. Carga despues del tema Flatly. */
 
 :root {
   --pro-navy: #1a2f47;
@@ -9,6 +9,18 @@
   --pro-ink: #1e3a5f;
   --pro-muted: #5b6b7b;
   --pro-line: #e6ebf1;
+  --pro-success: #10b981;
+  --pro-warning: #f59e0b;
+  --pro-danger: #ef4444;
+  --pro-info: #3b82f6;
+  --shadow-sm: 0 1px 2px rgba(26, 47, 71, .08);
+  --shadow-md: 0 4px 6px rgba(26, 47, 71, .1);
+  --shadow-lg: 0 10px 15px rgba(26, 47, 71, .12);
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
 }
 
 /* ---- Navbar superior ---- */
@@ -42,11 +54,12 @@
   box-shadow: inset 0 -3px 0 var(--pro-teal);
 }
 
-/* ---- Subpestañas ---- */
+/* ---- Subpestanas ---- */
 .nav-tabs .nav-link {
   color: var(--pro-muted);
   border: none;
   border-bottom: 2px solid transparent;
+  transition: all var(--transition-fast);
 }
 .nav-tabs .nav-link:hover {
   color: var(--pro-ink);
@@ -85,20 +98,27 @@
 /* ---- Tarjetas ---- */
 .card {
   border: 1px solid var(--pro-line);
-  box-shadow: 0 1px 3px rgba(26, 47, 71, .07);
+  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-lg);
+  transition: box-shadow var(--transition-normal), transform var(--transition-fast);
+}
+.card:hover {
+  box-shadow: var(--shadow-md);
 }
 .card-header:not(.bg-info) {
   font-weight: 600;
   color: var(--pro-ink);
   background-color: #fbfcfe;
   border-bottom: 1px solid var(--pro-line);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
 }
 
 /* ---- Formularios ---- */
 .selectize-input,
 .form-control,
 .selectize-dropdown {
-  border-radius: 8px;
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 .selectize-input.focus,
 .form-control:focus {
@@ -115,10 +135,156 @@ a:focus-visible,
   outline-offset: 2px;
 }
 
-/* ---- Cajas de aviso ---- */
-.filter-help { border-left-color: var(--pro-teal-dark); }
+/* ---- Botones ---- */
+.btn {
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+.btn-primary {
+  background-color: var(--pro-teal);
+  border-color: var(--pro-teal);
+}
+.btn-primary:hover {
+  background-color: var(--pro-teal-dark);
+  border-color: var(--pro-teal-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.btn-outline-primary {
+  color: var(--pro-teal);
+  border-color: var(--pro-teal);
+}
+.btn-outline-primary:hover {
+  background-color: var(--pro-teal);
+  border-color: var(--pro-teal);
+  color: #fff;
+}
+.btn-outline-primary:focus-visible {
+  box-shadow: 0 0 0 .15rem rgba(20, 184, 166, .35);
+}
 
-/* ---- Móvil y tablet: refuerzos (las bases ya están en app.R) ---- */
+/* ---- Value Boxes ---- */
+.value-box {
+  border-radius: var(--radius-lg) !important;
+  border: 1px solid var(--pro-line);
+  transition: box-shadow var(--transition-normal);
+}
+.value-box:hover {
+  box-shadow: var(--shadow-md);
+}
+.value-box .value-box-title {
+  font-size: .8rem;
+  color: var(--pro-muted);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+.value-box .value-box-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--pro-ink);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+}
+.value-box .value-box-showcase {
+  flex-shrink: 0;
+  opacity: .9;
+}
+
+/* ---- Cajas de aviso ---- */
+.filter-help {
+  font-size: .86rem;
+  line-height: 1.35;
+  color: var(--pro-muted);
+  background: #f8fafc;
+  border-left: 3px solid var(--pro-teal);
+  padding: 7px 10px;
+  margin: -2px 0 10px 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  transition: background-color var(--transition-fast);
+}
+.filter-help:hover {
+  background-color: #f0f7ff;
+}
+
+/* ---- Spinner de carga ---- */
+.plotly-spinner,
+.leaflet-spinner,
+.dt-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  color: var(--pro-muted);
+}
+.spinner-ring {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--pro-line);
+  border-top-color: var(--pro-teal);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---- Empty States ---- */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  color: var(--pro-muted);
+}
+.empty-state-icon {
+  font-size: 3rem;
+  opacity: .4;
+  margin-bottom: 1rem;
+}
+.empty-state-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--pro-ink);
+  margin-bottom: .5rem;
+}
+.empty-state-text {
+  font-size: .9rem;
+  max-width: 300px;
+}
+
+/* ---- Tooltips personalizados ---- */
+.tooltip-custom {
+  position: relative;
+  cursor: help;
+}
+.tooltip-custom::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--pro-navy);
+  color: #fff;
+  padding: .5rem .75rem;
+  border-radius: var(--radius-md);
+  font-size: .75rem;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--transition-fast), visibility var(--transition-fast);
+  z-index: 1000;
+}
+.tooltip-custom:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ---- Movil y tablet ---- */
 img, svg, canvas, video {
   max-width: 100%;
 }
@@ -139,16 +305,185 @@ img, svg, canvas, video {
   .card-header { font-size: .95rem; }
   .dataTables_wrapper { font-size: .85rem; }
   .leaflet-control-zoom { margin-top: 40px !important; }
+  .nav-tabs { gap: .25rem; }
+  .nav-tabs .nav-link { padding: .5rem .75rem; }
+  .btn { padding: .5rem 1rem; font-size: .9rem; }
+  .filter-help { font-size: .8rem; padding: 6px 8px; }
 }
 
-/* ---- Insignia del año dentro de los mapas (animación temporal) ---- */
+/* ---- Insignia del ano dentro de los mapas ---- */
 .map-year-badge {
   font-size: 26px;
   font-weight: 700;
   color: var(--pro-navy);
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.9);
   border: 1px solid var(--pro-line);
   border-radius: 8px;
   padding: 0 14px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
+
+/* ---- KPI Badges ---- */
+.kpi-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .25rem .5rem;
+  border-radius: 999px;
+  font-size: .7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.kpi-badge-success { background: rgba(16, 185, 129, .12); color: var(--pro-success); }
+.kpi-badge-warning { background: rgba(245, 158, 11, .12); color: var(--pro-warning); }
+.kpi-badge-danger { background: rgba(239, 68, 68, .12); color: var(--pro-danger); }
+.kpi-badge-info { background: rgba(59, 130, 246, .12); color: var(--pro-info); }
+
+/* ---- Mejoras DataTables ---- */
+.dataTables_wrapper .dataTable th {
+  font-weight: 600;
+  background-color: #fbfcfe;
+  border-bottom: 2px solid var(--pro-line);
+}
+.dataTables_wrapper .dataTable td {
+  vertical-align: middle;
+}
+.dataTables_wrapper .dataTable tr:hover td {
+  background-color: rgba(20, 184, 166, .04);
+}
+.dataTables_wrapper .dataTables_filter input {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--pro-line);
+  padding: .4rem .75rem;
+}
+.dataTables_wrapper .dataTables_length select {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--pro-line);
+  padding: .25rem .5rem;
+}
+
+/* ---- Scrollbars finos ---- */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* ---- Insignia del ano dentro de los mapas ---- */
+.map-year-badge {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--pro-navy);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--pro-line);
+  border-radius: 8px;
+  padding: 0 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* ---- KPI Badges ---- */
+.kpi-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .25rem .5rem;
+  border-radius: 999px;
+  font-size: .7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.kpi-badge-success { background: rgba(16, 185, 129, .12); color: var(--pro-success); }
+.kpi-badge-warning { background: rgba(245, 158, 11, .12); color: var(--pro-warning); }
+.kpi-badge-danger { background: rgba(239, 68, 68, .12); color: var(--pro-danger); }
+.kpi-badge-info { background: rgba(59, 130, 246, .12); color: var(--pro-info); }
+
+/* ---- Mejoras DataTables ---- */
+.dataTables_wrapper .dataTable th {
+  font-weight: 600;
+  background-color: #fbfcfe;
+  border-bottom: 2px solid var(--pro-line);
+}
+.dataTables_wrapper .dataTable td {
+  vertical-align: middle;
+}
+.dataTables_wrapper .dataTable tr:hover td {
+  background-color: rgba(20, 184, 166, .04);
+}
+.dataTables_wrapper .dataTables_filter input {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--pro-line);
+  padding: .4rem .75rem;
+}
+.dataTables_wrapper .dataTables_length select {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--pro-line);
+  padding: .25rem .5rem;
+}
+
+/* ---- Scrollbars finos ---- */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* ---- Insignia del ano dentro de los mapas ---- */
+.map-year-badge {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--pro-navy);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--pro-line);
+  border-radius: 8px;
+  padding: 0 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* ---- KPI Badges ---- */
+.kpi-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .25rem .5rem;
+  border-radius: 999px;
+  font-size: .7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.kpi-badge-success { background: rgba(16, 185, 129, .12); color: var(--pro-success); }
+.kpi-badge-warning { background: rgba(245, 158, 11, .12); color: var(--pro-warning); }
+.kpi-badge-danger { background: rgba(239, 68, 68, .12); color: var(--pro-danger); }
+.kpi-badge-info { background: rgba(59, 130, 246, .12); color: var(--pro-info); }
+
+/* ---- Mejoras DataTables ---- */
+.dataTables_wrapper .dataTable th {
+  font-weight: 600;
+  background-color: #fbfcfe;
+  border-bottom: 2px solid var(--pro-line);
+}
+.dataTables_wrapper .dataTable td {
+  vertical-align: middle;
+}
+.dataTables_wrapper .dataTable tr:hover td {
+  background-color: rgba(20, 184, 166, .04);
+}
+.dataTables_wrapper .dataTables_filter input {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--pro-line);
+  padding: .4rem .75rem;
+}
+.dataTables_wrapper .dataTables_length select {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--pro-line);
+  padding: .25rem .5rem;
+}
+
+/* ---- Scrollbars finos ---- */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+::-webkit-scrollbar-corner { background: transparent; }
