@@ -2,6 +2,9 @@
   # PESTAÑA 3: MÉTRICAS DEMOGRÁFICAS
 ui_metricas <- nav_panel(
     title = "Métricas demográficas",
+    div(class = "tab-hero",
+        h2("Métricas demográficas"),
+        p("Población, envejecimiento, brecha de género y esperanza de vida por provincia.")),
     navset_tab(
       id = "nav_metricas",
       nav_panel(

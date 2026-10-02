@@ -2,6 +2,9 @@
   # PESTAÑA 4: EUROPA
 ui_europa <- nav_panel(
     title = "Europa",
+    div(class = "tab-hero",
+        h2("Europa"),
+        p("35 países (Eurostat) frente a España: mapa, comparador y tasas.")),
     navset_tab(
       id = "nav_europa",
       nav_panel(

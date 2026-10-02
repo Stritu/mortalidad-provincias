@@ -2,6 +2,9 @@
   # PESTAÑA 2: CAUSAS DE DEFUNCIÓN
 ui_causas <- nav_panel(
     title = "Causas de defunción",
+    div(class = "tab-hero",
+        h2("Causas de defunción"),
+        p("13 capítulos por provincia, sexo y año (2018–2022). Mapas, evolución, comparadores y desigualdad.")),
     navset_tab(
       id = "nav_causas",
       nav_panel(

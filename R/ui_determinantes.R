@@ -2,6 +2,9 @@
   # PESTAÑA 5BIS: DETERMINANTES SOCIOECONÓMICOS (RENTA Y MÉDICOS)
 ui_determinantes <- nav_panel(
     title = "Determinantes",
+    div(class = "tab-hero",
+        h2("Determinantes"),
+        p("Renta, médicos colegiados e índice sintético por comunidad (2018–2022).")),
     navset_tab(
       id = "nav_determinantes",
       nav_panel(

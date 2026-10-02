@@ -2,6 +2,9 @@
   # PESTAÑA 6BIS: EXCESO DE MORTALIDAD (OBSERVADO VS 2015-2019)
 ui_exceso <- nav_panel(
     title = "Exceso de mortalidad",
+    div(class = "tab-hero",
+        h2("Exceso de mortalidad"),
+        p("Defunciones observadas frente a las esperadas (media 2015–2019, P-score).")),
     layout_sidebar(
       sidebar = sidebar(
         title = "Configuración",

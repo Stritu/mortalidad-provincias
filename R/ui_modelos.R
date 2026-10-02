@@ -1,6 +1,9 @@
 # PESTAÑA: MODELOS ESTADISTICOS (regresion + panel europeo + multivariante)
 ui_modelos <- nav_panel(
     title = "Modelos estadísticos",
+    div(class = "tab-hero",
+        h2("Modelos estadísticos"),
+        p("Regresión entre causas, panel europeo de efectos fijos y multivariante.")),
     navset_tab(
       id = "nav_modelos",
       nav_panel(
