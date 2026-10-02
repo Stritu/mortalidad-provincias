@@ -16,7 +16,7 @@ server_causas <- function(input, output, session) {
     tasa_causa_prov(input$p2_ano, input$p2_sexo, input$p2_defuncion) %>%
       transmute(Provincia, Total_Fallecidos = Fallecidos,
                 Poblacion_Total = Poblacion, Tasa)
-  }) %>% bindCache(input$p2_defuncion, input$p2_ano, input$p2_sexo)
+  }) %>% bindCache(input$p2_defuncion, input$p2_ano, input$p2_sexo, cache = "app")
 
   # --- MAPA ÚNICO PROVINCIAL (los 4 indicadores en una tarjeta) ---
   datos_map <- reactive({
@@ -52,7 +52,7 @@ server_causas <- function(input, output, session) {
            titulo = paste0("Brecha frente a nacional (", input$map_ano, ")"),
            pal = PAL_RDBU_REV, desde_cero = FALSE, fmt = 2)
     }
-  }) %>% bindCache(input$map_ind, input$map_ano, input$map_sexo, input$map_causa)
+  }) %>% bindCache(input$map_ind, input$map_ano, input$map_sexo, input$map_causa, cache = "app")
 
   output$map_titulo <- renderText({
     datos_map()$titulo
@@ -400,7 +400,7 @@ server_causas <- function(input, output, session) {
       arrange(Año_Num)
     list(cap = cap, nac = nac, ev = ev, ev_nac = ev_nac)
   }) %>% bindCache(input$ct_nivel, input$ct_a, input$ct_b, input$ct_causa,
-                   input$ct_ano, input$ct_sexo)
+                   input$ct_ano, input$ct_sexo, cache = "app")
 
   # Referencia efectiva: B, o nacional si B es la nacional o coincide con A.
   ct_ref <- function() {
@@ -610,7 +610,7 @@ server_causas <- function(input, output, session) {
         Año_Num = suppressWarnings(as.numeric(Año))
       ) %>%
       filter(is.finite(Tasa), !is.na(Comunidad), Comunidad != "Sin asignar")
-  }) %>% bindCache(input$pt_causa, input$pt_sexo)
+  }) %>% bindCache(input$pt_causa, input$pt_sexo, cache = "app")
   
   output$pt_kpi_cambio <- renderText({
     df <- datos_pt_ccaa() %>%
@@ -1110,7 +1110,7 @@ server_causas <- function(input, output, session) {
   datos_pev <- reactive({
     req(input$pev_ano, input$pev_sexo)
     tasa_sensible_prov(input$pev_ano, input$pev_sexo)
-  }) %>% bindCache(input$pev_ano, input$pev_sexo)
+  }) %>% bindCache(input$pev_ano, input$pev_sexo, cache = "app")
 
   datos_pev_evol <- reactive({
     req(input$pev_sexo)
@@ -1124,7 +1124,7 @@ server_causas <- function(input, output, session) {
       mutate(Pct = Fall / sum(Fall) * 100) %>%
       ungroup() %>%
       filter(is.finite(Pct))
-  }) %>% bindCache(input$pev_sexo)
+  }) %>% bindCache(input$pev_sexo, cache = "app")
 
   output$pev_kpi_pct <- renderText({
     df <- datos_pev()
@@ -1216,7 +1216,7 @@ server_causas <- function(input, output, session) {
   datos_des <- reactive({
     req(input$des_ano, input$des_sexo, input$des_causa)
     brecha_prov(input$des_ano, input$des_sexo, input$des_causa)
-  }) %>% bindCache(input$des_ano, input$des_sexo, input$des_causa)
+  }) %>% bindCache(input$des_ano, input$des_sexo, input$des_causa, cache = "app")
 
   datos_des_evol <- reactive({
     req(input$des_sexo, input$des_causa)
@@ -1239,7 +1239,7 @@ server_causas <- function(input, output, session) {
                 Max_Min = max(Tasa) / min(Tasa[Tasa > 0]), .groups = "drop") %>%
       filter(is.finite(Gini), is.finite(P90_P10), is.finite(Max_Min)) %>%
       arrange(Año_Num)
-  }) %>% bindCache(input$des_sexo, input$des_causa)
+  }) %>% bindCache(input$des_sexo, input$des_causa, cache = "app")
 
   output$des_kpi_gini <- renderText({
     df <- datos_des()
@@ -1331,7 +1331,7 @@ server_causas <- function(input, output, session) {
       left_join(pob, by = c("Año", "Año_Num", "Provincia")) %>%
       mutate(Tasa = if_else(Poblacion > 0, Fallecidos / Poblacion * 100000, NA_real_)) %>%
       filter(is.finite(Tasa))
-  }) %>% bindCache(input$al_sexo)
+  }) %>% bindCache(input$al_sexo, cache = "app")
 
   datos_al <- reactive({
     t <- datos_al_tasas()
@@ -1371,7 +1371,7 @@ server_causas <- function(input, output, session) {
     bind_rows(temp, nivel) %>%
       mutate(absz = abs(z)) %>%
       arrange(desc(absz))
-  }) %>% bindCache(input$al_sexo)
+  }) %>% bindCache(input$al_sexo, cache = "app")
 
   datos_al_filtrados <- reactive({
     req(input$al_causa, input$al_tipo)
@@ -1533,7 +1533,7 @@ server_causas <- function(input, output, session) {
          tasa = if (p_sel > 0) f_sel / p_sel * 100000 else NA_real_,
          tasa_nac = if (pn > 0) sum(df$Fallecidos, na.rm = TRUE) / pn * 100000 else NA_real_,
          evo = evo)
-  }) %>% bindCache(input$in_nivel, input$in_terr, input$in_ano, input$in_sexo)
+  }) %>% bindCache(input$in_nivel, input$in_terr, input$in_ano, input$in_sexo, cache = "app")
 
   output$in_kpi_fall <- renderText({
     d <- datos_in()
@@ -1613,13 +1613,13 @@ server_causas <- function(input, output, session) {
       group_by(Año_Num, Provincia) %>%
       summarise(Tasa = sum(Fallecidos) / sum(Poblacion) * 100000, .groups = "drop") %>%
       filter(is.finite(Tasa))
-  }) %>% bindCache(input$st_causa, input$st_sexo)
+  }) %>% bindCache(input$st_causa, input$st_sexo, cache = "app")
 
   datos_st_clusters <- reactive({
     d <- datos_st()
     req(nrow(d) > 0)
     scan_espacio_temporal(d, nb_provincias, alpha = input$st_alpha)
-  }) %>% bindCache(input$st_causa, input$st_sexo, input$st_alpha)
+  }) %>% bindCache(input$st_causa, input$st_sexo, input$st_alpha, cache = "app")
 
   output$st_kpi_anos <- renderText({
     d <- datos_st()
@@ -1696,6 +1696,7 @@ server_causas <- function(input, output, session) {
   })
 
 }
+
 
 
 

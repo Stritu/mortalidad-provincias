@@ -50,14 +50,14 @@ server_determinantes <- function(input, output, session) {
   datos_det <- reactive({
     req(input$det_ind, input$det_ano)
     det_ccaa_ano(input$det_ind, input$det_ano) %>% filter(is.finite(Valor))
-  }) %>% bindCache(input$det_ind, input$det_ano)
+  }) %>% bindCache(input$det_ind, input$det_ano, cache = "app")
 
   datos_det_evol <- reactive({
     req(input$det_ind)
     lapply(det_anos, function(a) {
       det_ccaa_ano(input$det_ind, a) %>% mutate(Año = a)
     }) %>% bind_rows()
-  }) %>% bindCache(input$det_ind)
+  }) %>% bindCache(input$det_ind, cache = "app")
 
   output$det_kpi_media <- renderText({
     df <- datos_det()
@@ -203,7 +203,7 @@ server_determinantes <- function(input, output, session) {
   datos_idx <- reactive({
     req(input$idx_ano, input$idx_wr, input$idx_wm, input$idx_wmo)
     idx_build(as.character(input$idx_ano), input$idx_wr, input$idx_wm, input$idx_wmo, idx_rangos)
-  }) %>% bindCache(input$idx_ano, input$idx_wr, input$idx_wm, input$idx_wmo)
+  }) %>% bindCache(input$idx_ano, input$idx_wr, input$idx_wm, input$idx_wmo, cache = "app")
 
   datos_idx_evol <- reactive({
     req(input$idx_wr, input$idx_wm, input$idx_wmo)
@@ -212,7 +212,7 @@ server_determinantes <- function(input, output, session) {
       idx_build(as.character(x), input$idx_wr, input$idx_wm, input$idx_wmo, rg) %>%
         mutate(Año = as.character(x))
     }) %>% bind_rows()
-  }) %>% bindCache(input$idx_wr, input$idx_wm, input$idx_wmo)
+  }) %>% bindCache(input$idx_wr, input$idx_wm, input$idx_wmo, cache = "app")
 
   output$idx_kpi_lider <- renderText({
     df <- datos_idx()
@@ -298,3 +298,4 @@ server_determinantes <- function(input, output, session) {
       DT::formatRound(c("Médicos", "Tasa bruta", "Índice"), 1, dec.mark = ",", mark = ".")
   })
 }
+

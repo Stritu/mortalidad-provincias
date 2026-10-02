@@ -661,7 +661,7 @@ server_metricas <- function(input, output, session) {
              Edad == input$ev_edad, Sexo == input$ev_sexo) %>%
       filter(is.finite(Valor)) %>%
       transmute(Provincia = as.character(Provincia), Valor = Valor)
-  }) %>% bindCache(input$ev_ano, input$ev_edad, input$ev_sexo)
+  }) %>% bindCache(input$ev_ano, input$ev_edad, input$ev_sexo, cache = "app")
 
   output$ev_kpi_media <- renderText({
     df <- datos_ev()
@@ -736,7 +736,7 @@ server_metricas <- function(input, output, session) {
       summarise(Valor = mean(Valor, na.rm = TRUE), .groups = "drop") %>%
       mutate(Ano_Num = suppressWarnings(as.numeric(Año))) %>%
       filter(is.finite(Valor), is.finite(Ano_Num))
-  }) %>% bindCache(input$ev_edad, input$ev_sexo)
+  }) %>% bindCache(input$ev_edad, input$ev_sexo, cache = "app")
 
   output$ev_evol <- renderPlotly({
     df <- datos_ev_evol() %>% arrange(Ano_Num, Comunidad)
@@ -773,3 +773,4 @@ server_metricas <- function(input, output, session) {
       DT::formatRound("Esperanza de vida (años)", 1, dec.mark = ",", mark = ".")
   })
 }
+

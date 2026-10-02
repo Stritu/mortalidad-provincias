@@ -23,7 +23,7 @@ server_exceso <- function(input, output, session) {
       mutate(Esp = esp,
              Exc = Obs - Esp,
              Pscore = if_else(Esp > 0, Exc / Esp * 100, NA_real_))
-  }) %>% bindCache(input$ex_prov, input$ex_sexo)
+  }) %>% bindCache(input$ex_prov, input$ex_sexo, cache = "app")
 
   ex_fmt <- function(v, dec = 0) {
     format(round(v, dec), big.mark = ".", decimal.mark = ",", nsmall = dec, scientific = FALSE, trim = TRUE)
@@ -107,7 +107,7 @@ server_exceso <- function(input, output, session) {
       mutate(Obs = if_else(is.finite(Obs), Obs, 0),
              Esp = if_else(is.finite(Esp), Esp, NA_real_),
              P = if_else(is.finite(Esp) & Esp > 0, (Obs - Esp) / Esp * 100, NA_real_))
-  }) %>% bindCache(input$ex_prov, input$ex_sexo, input$ex_ano)
+  }) %>% bindCache(input$ex_prov, input$ex_sexo, input$ex_ano, cache = "app")
 
   output$ex_meses <- renderPlotly({
     df <- datos_ex_mes()
@@ -169,3 +169,4 @@ server_exceso <- function(input, output, session) {
       DT::formatRound("P-score (%)", 1, dec.mark = ",", mark = ".")
   })
 }
+

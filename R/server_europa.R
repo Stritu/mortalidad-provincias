@@ -78,7 +78,7 @@ server_europa <- function(input, output, session) {
         sexo == input$eur_sexo,
         anio == as.numeric(input$eur_anio)
       )
-  }) %>% bindCache(input$eur_causa, input$eur_sexo, input$eur_anio)
+  }) %>% bindCache(input$eur_causa, input$eur_sexo, input$eur_anio, cache = "app")
   
   output$eur_filtro_info <- renderUI({
     req(input$eur_anio, input$eur_causa, input$eur_sexo)
@@ -665,5 +665,6 @@ server_europa <- function(input, output, session) {
   })
   
 }
+
 
 
