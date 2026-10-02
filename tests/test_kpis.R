@@ -34,12 +34,9 @@ check("2022: Madrid mayor EV al nacer (84,8)",
 g <- gini_pond(t_prov$Tasa, t_prov$Poblacion / n_c)
 check("2022: Gini entre provincias 0,102", cerca(g, 0.102, 0.002))
 
-sens <- sum(c22$Fallecidos[!c22$Defunción %in% c(
-  "Trastornos mentales y del comportamiento",
-  "Enfermedades del sistema nervioso y de los órganos de los sentidos",
-  "Enfermedades del sistema osteomuscular y del tejido conjuntivo",
-  "Malformaciones congénitas, deformidades y anomalías cromosómicas",
-  "Síntomas, signos y hallazgos anormales clínicos y de laboratorio, no clasificados en otra parte")]) / tot * 100
+# % sensible con la función REAL de la app (no lista duplicada: si el mapeo
+# cambia y el test sigue verde, el test no sirve).
+sens <- sum(c22$Fallecidos[asignar_cesta(c22$Defunción) != "Resto"]) / tot * 100
 check("2022: % sensible evitable 85,6", cerca(sens, 85.6, 0.1))
 
 # Helpers del mapa único: mismos números que el cálculo directo.
@@ -52,3 +49,6 @@ check("helper brecha_prov: 52 ratios finitos",
 h3 <- tasa_sensible_prov("2022", "Ambos")
 check("helper tasa_sensible_prov: 52 y media 85,6",
       nrow(h3) == 52 && cerca(sum(h3$Fall_Sens) / sum(h3$Fall_Tot) * 100, 85.6, 0.1))
+h4 <- tasa_std_prov("2022", "Ambos")
+check("helper tasa_std_prov: 52 con bruta y std finitas",
+      nrow(h4) == 52 && all(is.finite(h4$Tasa_std)) && all(is.finite(h4$Tasa_bruta)))
