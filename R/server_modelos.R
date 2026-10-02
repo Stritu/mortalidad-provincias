@@ -54,18 +54,18 @@ server_modelos <- function(input, output, session) {
     )
     req(nrow(df) > 2)
     df
-  })
+  }) %>% bindCache(input$p32_x, input$p32_y, input$p32_ano, input$p32_sexo, input$p32_log)
 
   modelo_32 <- reactive({
     df <- datos_32()
     req(nrow(df) > 2)
     lm(Y_val ~ X_val, data = df)
-  })
+  }) %>% bindCache(input$p32_x, input$p32_y, input$p32_ano, input$p32_sexo, input$p32_log)
 
   supuestos_32 <- reactive({
     df <- datos_32()
     evaluar_supuestos(modelo_32(), df)
-  })
+  }) %>% bindCache(input$p32_x, input$p32_y, input$p32_ano, input$p32_sexo, input$p32_log)
 
   # Submatriz de vecinas limitada a las provincias con datos.
   listw_provincias <- function(provincias) {
@@ -89,7 +89,7 @@ server_modelos <- function(input, output, session) {
     req(!is.null(lw))
     moran <- spdep::moran.test(df$residuo, lw, zero.policy = TRUE)
     list(moran = moran, n = nrow(df))
-  })
+  }) %>% bindCache(input$p32_x, input$p32_y, input$p32_ano, input$p32_sexo, input$p32_log)
   
   output$p32_filtro_info <- renderUI({
     req(input$p32_x, input$p32_y, input$p32_ano, input$p32_sexo)
@@ -329,7 +329,7 @@ server_modelos <- function(input, output, session) {
     }
     req(nrow(df) > 10)
     df
-  })
+  }) %>% bindCache(input$eur_reg_causa, input$eur_reg_sexo, input$eur_reg_fe, input$eur_reg_log)
   
   modelo_eur_reg <- reactive({
     df <- datos_eur_reg()
@@ -350,7 +350,7 @@ server_modelos <- function(input, output, session) {
       formula_str <- paste("tasa_100k ~", paste(fe_cols, collapse = " + "))
     }
     lm(as.formula(formula_str), data = df)
-  })
+  }) %>% bindCache(input$eur_reg_causa, input$eur_reg_sexo, input$eur_reg_fe, input$eur_reg_log)
   
   # Errores robustos cluster país (Arellano, 1987) - implementación manual
   coef_cluster_pais <- function(fit, df) {
@@ -394,7 +394,7 @@ server_modelos <- function(input, output, session) {
     fit <- modelo_eur_reg()
     df <- datos_eur_reg()
     coef_cluster_pais(fit, df)
-  })
+  }) %>% bindCache(input$eur_reg_causa, input$eur_reg_sexo, input$eur_reg_fe, input$eur_reg_log)
   
   # Diagnostics
   diag_plots <- reactive({
@@ -405,7 +405,7 @@ server_modelos <- function(input, output, session) {
     df$.resid <- residuals(fit)
     df$.stdresid <- rstandard(fit)
     list(fit = fit, df = df)
-  })
+  }) %>% bindCache(input$eur_reg_causa, input$eur_reg_sexo, input$eur_reg_fe, input$eur_reg_log)
   
   # Predictions by country for trends plot
   pred_by_country <- reactive({
@@ -422,7 +422,7 @@ server_modelos <- function(input, output, session) {
     newdata$.fitted <- predict(fit, newdata = newdata)
     newdata$pais_es <- traducir_pais(newdata$pais)
     newdata
-  })
+  }) %>% bindCache(input$eur_reg_causa, input$eur_reg_sexo, input$eur_reg_fe, input$eur_reg_log)
   
   output$eur_reg_r2 <- renderText({
     fit <- modelo_eur_reg()
@@ -454,7 +454,7 @@ server_modelos <- function(input, output, session) {
     a <- anova(fit)
     p <- if ("pais" %in% rownames(a) && "Pr(>F)" %in% names(a)) a["pais", "Pr(>F)"] else NA_real_
     list(p = unname(p), tiene_anio = dplyr::n_distinct(df$anio) >= 2)
-  })
+  }) %>% bindCache(input$eur_reg_causa, input$eur_reg_sexo)
 
   output$eur_reg_veredicto <- renderText({
     v <- datos_eur_veredicto()
