@@ -991,8 +991,10 @@ get_vecinos <- function() {
 
 # Vecindad reina (contigüidad) con nombres de mapa_provincias: una vez por
 # arranque, sin descargas en sesión. Para Local Moran I por año.
+# suppressWarnings: las islas/Ceuta/Melilla no tienen vecinas contiguas
+# (6 subgrafos) y spdep avisa; es esperado y se gestiona con zero.policy.
 nb_provincias <- local({
-  nb <- spdep::poly2nb(mapa_provincias, queen = TRUE)
+  nb <- suppressWarnings(spdep::poly2nb(mapa_provincias, queen = TRUE))
   names(nb) <- as.character(mapa_provincias$NAME_2)
   nb
 })
