@@ -5,24 +5,22 @@
 #   R/ui_*.R     una pestana de la interfaz (objetos ui_*)
 #   R/server_*.R logica de cada pestana (funciones server_*())
 # ============================================================================
-orden_tabs <- c("resumen", "causas", "metricas", "europa", "determinantes", "regresiones", "exceso", "multivariante")
+orden_tabs <- c("resumen", "causas", "metricas", "europa", "determinantes", "modelos", "exceso")
 source("R/global.R", encoding = "UTF-8")
 source("R/ui_resumen.R", encoding = "UTF-8")
 source("R/ui_causas.R", encoding = "UTF-8")
 source("R/ui_metricas.R", encoding = "UTF-8")
 source("R/ui_europa.R", encoding = "UTF-8")
 source("R/ui_determinantes.R", encoding = "UTF-8")
-source("R/ui_regresiones.R", encoding = "UTF-8")
+source("R/ui_modelos.R", encoding = "UTF-8")
 source("R/ui_exceso.R", encoding = "UTF-8")
-source("R/ui_multivariante.R", encoding = "UTF-8")
 source("R/server_resumen.R", encoding = "UTF-8")
 source("R/server_causas.R", encoding = "UTF-8")
 source("R/server_metricas.R", encoding = "UTF-8")
 source("R/server_europa.R", encoding = "UTF-8")
 source("R/server_determinantes.R", encoding = "UTF-8")
-source("R/server_regresiones.R", encoding = "UTF-8")
+source("R/server_modelos.R", encoding = "UTF-8")
 source("R/server_exceso.R", encoding = "UTF-8")
-source("R/server_multivariante.R", encoding = "UTF-8")
 
 
 # ==============================================================================
@@ -140,9 +138,8 @@ ui <- page_navbar(
   ui_metricas,
   ui_europa,
   ui_determinantes,
-  ui_regresiones,
-  ui_exceso,
-  ui_multivariante
+  ui_modelos,
+  ui_exceso
 )
 
 # ==============================================================================
@@ -156,9 +153,8 @@ server <- function(input, output, session) {
   server_metricas(input, output, session)
   server_europa(input, output, session)
   server_determinantes(input, output, session)
-  server_regresiones(input, output, session)
+  server_modelos(input, output, session)
   server_exceso(input, output, session)
-  server_multivariante(input, output, session)
 
   # Animación temporal: cada checkbox avanza su selector de año
   animar_anos(input, session, "det_animar", "det_ano", det_anos)

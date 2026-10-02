@@ -14,7 +14,7 @@ server_resumen <- function(input, output, session) {
     bslib::nav_select("nav_principal", selected = "Determinantes", session = session)
   })
   observeEvent(input$por_ir_multi, {
-    bslib::nav_select("nav_principal", selected = "Análisis multivariante", session = session)
+    bslib::nav_select("nav_principal", selected = "Modelos estadísticos", session = session)
   })
 
   # Índice de la portada: cada enlace salta a su pestaña y subpestaña.
@@ -40,12 +40,12 @@ server_resumen <- function(input, output, session) {
     list("ir_m_ev", "Métricas demográficas", "nav_metricas", "Esperanza de vida"),
     list("ir_e_mapa", "Europa", "nav_europa", "Mapa europeo"),
     list("ir_e_comp", "Europa", "nav_europa", "Comparador de países europeos"),
-    list("ir_e_ef", "Europa", "nav_europa", "Modelo europeo: efectos fijos"),
+    list("ir_e_ef", "Modelos estadísticos", "nav_modelos", "Modelo europeo: efectos fijos"),
     list("ir_d_renta", "Determinantes", "nav_determinantes", "Renta y médicos"),
     list("ir_d_idx", "Determinantes", "nav_determinantes", "Índice sintético"),
-    list("ir_r_causas", "Regresiones lineales", "nav_regresiones", "Regresión entre causas"),
+    list("ir_r_causas", "Modelos estadísticos", "nav_modelos", "Regresión entre causas"),
     list("ir_ex", "Exceso de mortalidad", NA, NA),
-    list("ir_mult", "Análisis multivariante", NA, NA)
+    list("ir_mult", "Modelos estadísticos", "nav_modelos", "Multivariante (PCA + k-means)")
   )
   for (d in destinos_indice) {
     local({

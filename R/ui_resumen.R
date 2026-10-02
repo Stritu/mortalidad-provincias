@@ -10,7 +10,7 @@ ui_resumen <- nav_panel(
             actionButton("por_ir_europa", "Europa", icon = icon("flag"), class = "btn-outline-primary"),
             actionButton("por_ir_exceso", "Exceso", icon = icon("chart-line"), class = "btn-outline-primary"),
             actionButton("por_ir_determinantes", "Determinantes", icon = icon("coins"), class = "btn-outline-primary"),
-            actionButton("por_ir_multi", "Multivariante", icon = icon("diagram-project"), class = "btn-outline-primary"))
+            actionButton("por_ir_multi", "Modelos", icon = icon("diagram-project"), class = "btn-outline-primary"))
       )
     ),
     # Div Bootstrap plano (sin bslib::card): crece con el contenido y muestra
@@ -55,7 +55,6 @@ ui_resumen <- nav_panel(
             tags$ul(
               tags$li(actionLink("ir_e_mapa", "Mapa europeo"), ": foto por país, causa y año."),
               tags$li(actionLink("ir_e_comp", "Comparador de países europeos"), ": dos países frente a la media europea."),
-              tags$li(actionLink("ir_e_ef", "Modelo europeo: efectos fijos"), ": tasa según país, año, causa y sexo, con errores cluster por país; incluye veredicto de diferencias entre países y boxplot.")
             ),
             h5("Determinantes"),
             p("Contexto socioeconómico y sanitario por CCAA (2018–2022)."),
@@ -63,15 +62,15 @@ ui_resumen <- nav_panel(
               tags$li(actionLink("ir_d_renta", "Renta y médicos"), ": renta por persona y hogar, colegiados por 100k."),
               tags$li(actionLink("ir_d_idx", "Índice sintético"), ": renta + médicos + mortalidad en un 0–100 ponderable.")
             ),
-            h5("Regresiones lineales"),
-            p("Relaciones entre indicadores provinciales, con supuestos, Moran y matriz de validez."),
+            h5("Modelos estadísticos"),
+            p("Regresión provincial, panel europeo y multivariante en una sola pestaña."),
             tags$ul(
-              tags$li(actionLink("ir_r_causas", "Regresión entre causas"), ": pares de tasas por 100k con diagnóstico completo.")
+              tags$li(actionLink("ir_r_causas", "Regresión entre causas"), ": pares de tasas por 100k con supuestos, Moran y matriz de validez."),
+              tags$li(actionLink("ir_e_ef", "Modelo europeo: efectos fijos"), ": tasa según país, año, causa y sexo, con veredicto de diferencias y boxplot."),
+              tags$li(actionLink("ir_mult", "Multivariante (PCA + k-means)"), ": perfiles provinciales con codo, silueta, heatmap y tabla.")
             ),
             h5("Exceso de mortalidad"),
-            p("Observadas frente a esperadas según la media 2015–2019 (P-score), por año y por mes. ", actionLink("ir_ex", "Ir a la pestaña.")),
-            h5("Análisis multivariante"),
-            p("PCA del perfil de mortalidad + k-means con codo, silueta, heatmap y tabla. ", actionLink("ir_mult", "Ir a la pestaña."))
+            p("Observadas frente a esperadas según la media 2015–2019 (P-score), por año y por mes. ", actionLink("ir_ex", "Ir a la pestaña."))
           )
         )
     ),
