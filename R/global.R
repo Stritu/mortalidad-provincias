@@ -989,6 +989,14 @@ get_vecinos <- function() {
   vecinos_memo$obj
 }
 
+# Vecindad reina (contigüidad) con nombres de mapa_provincias: una vez por
+# arranque, sin descargas en sesión. Para Local Moran I por año.
+nb_provincias <- local({
+  nb <- spdep::poly2nb(mapa_provincias, queen = TRUE)
+  names(nb) <- as.character(mapa_provincias$NAME_2)
+  nb
+})
+
 
 # ==============================================================================
 # 2.5. NUEVOS DATASETS: APVP, MENSUAL Y EDAD/SEXO POR COMUNIDAD
@@ -1817,7 +1825,7 @@ predecir_serie <- function(serie, h = 3, nivel = 0.95) {
 # ---- DETECCIÓN DE CAMBIO DE REGIMEN (Pettitt test simple) ----
 pettitt_test <- function(x) {
   n <- length(x)
-  if (n < 6) return(list(cambio = NA, p_valor = NA, estadistico = NA))
+  if (n < 5) return(list(cambio = NA, p_valor = NA, estadistico = NA))
   k_seq <- 2:(n - 1)
   U <- sapply(k_seq, function(k) {
     sum(sapply(1:k, function(i) sum(sign(x[i] - x[(k + 1):n]))))
@@ -1829,19 +1837,45 @@ pettitt_test <- function(x) {
 }
 
 # ---- CLUSTER ESPACIO-TEMPORAL (scan statistic simple) ----
+# Subconjunto de lista de vecinas manteniendo clase nb e índices coherentes.
+reindex_nb <- function(nb, keep) {
+  keep <- intersect(names(nb), keep)
+  idx <- match(keep, names(nb))
+  out <- lapply(idx, function(i) {
+    v <- nb[[i]]
+    # Convención spdep: 0L = sin vecinas (se preserva; integer(0) rompería nb2listw).
+    v <- v[v == 0L | v %in% idx]
+    v[v != 0L] <- match(v[v != 0L], idx)
+    v
+  })
+  names(out) <- keep
+  attr(out, "region.id") <- keep
+  attr(out, "GeoDA") <- attr(nb, "GeoDA")
+  attr(out, "sym") <- isTRUE(attr(nb, "sym"))
+  class(out) <- "nb"
+  out
+}
+
 scan_espacio_temporal <- function(df, vecinos, alpha = 0.05) {
   if (!requireNamespace("spdep", quietly = TRUE)) return(data.frame())
-  provs <- unique(df$Provincia)
+  # Solo provincias presentes en la vecindad (nombres de mapa_provincias).
+  provs <- intersect(unique(df$Provincia), names(vecinos))
+  if (length(provs) < 3) return(data.frame())
+  df <- df[df$Provincia %in% provs, , drop = FALSE]
   años <- sort(unique(df$Año_Num))
   res <- list()
   for (a in años) {
     d <- df[df$Año_Num == a, ]
     tasas <- setNames(d$Tasa, d$Provincia)
     tasas <- tasas[provs]
-    if (any(is.na(tasas))) next
-    nb <- vecinos[provs]
-    lw <- spdep::nb2listw(nb, style = "B", zero.policy = TRUE)
-    moran_local <- spdep::localmoran(tasas, lw, zero.policy = TRUE)
+    if (any(!is.finite(tasas))) next
+    nb <- reindex_nb(vecinos, provs)
+    lw <- tryCatch(spdep::nb2listw(nb, style = "B", zero.policy = TRUE),
+                   error = function(e) NULL)
+    if (is.null(lw)) next
+    moran_local <- tryCatch(spdep::localmoran(tasas, lw, zero.policy = TRUE),
+                            error = function(e) NULL)
+    if (is.null(moran_local)) next
     tmp <- data.frame(
       Provincia = provs,
       Año_Num = a,

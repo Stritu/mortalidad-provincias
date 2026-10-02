@@ -1728,7 +1728,7 @@ server_causas <- function(input, output, session) {
   # Test de Pettitt
   datos_fc_pettitt <- reactive({
     s <- datos_fc_serie()
-    req(nrow(s) >= 6)
+    req(nrow(s) >= 5)
     pettitt_test(s$Valor)
   }) %>% bindCache(input$fc_causa, input$fc_provincia, input$fc_sexo)
 
@@ -1767,13 +1767,13 @@ server_causas <- function(input, output, session) {
     p <- plot_ly()
     p <- add_trace(p, data = obs, x = ~Año_Num, y = ~Valor, name = "Observado",
                    type = "scatter", mode = "lines+markers",
-                   line = list(color = var(--pro-navy), width = 2.5),
+                   line = list(color = "#1a2f47", width = 2.5),
                    marker = list(line = list(color = "white", width = 1)),
                    hovertemplate = "<b>%{x}</b><br>Tasa: %{y:.1f}<extra></extra>")
     if (nrow(pred) > 0) {
       p <- add_trace(p, data = pred, x = ~Año_Num, y = ~Valor, name = "Predicho",
                      type = "scatter", mode = "lines+markers",
-                     line = list(color = var(--pro-teal), width = 2.5, dash = "dash"),
+                     line = list(color = "#0E9F8A", width = 2.5, dash = "dash"),
                      marker = list(line = list(color = "white", width = 1)),
                      hovertemplate = "<b>%{x}</b><br>Predicción: %{y:.1f}<extra></extra>")
       if (isTRUE(input$fc_mostrar_ic) && all(c("Li", "Ls") %in% names(pred))) {
@@ -1794,7 +1794,7 @@ server_causas <- function(input, output, session) {
 
   output$fc_pettitt_texto <- renderText({
     pt <- datos_fc_pettitt()
-    if (is.na(pt$cambio)) return("Serie demasiado corta para el test (mínimo 6 años).")
+    if (is.na(pt$cambio)) return("Serie demasiado corta para el test (mínimo 5 años).")
     paste0("Estadístico U: ", format(round(pt$estadistico, 1), decimal.mark = ","),
            "\nAño de cambio estimado: ", pt$cambio,
            "\np-valor: ", format.pval(pt$p_valor, digits = 3),
@@ -1802,14 +1802,7 @@ server_causas <- function(input, output, session) {
   })
 
   # ---- CLUSTERS ESPACIO-TEMPORALES (Local Moran I) ----
-  # Vecindad reina precomputada
-  vecinos_reina <- reactive({
-    req(mapSpain::esp_get_prov())
-    provs <- mapSpain::esp_get_prov()
-    nb <- spdep::poly2nb(provs, queen = TRUE)
-    names(nb) <- provs$NAME_2
-    nb
-  }) %>% bindCache("vecinos_reina")
+  # nb_provincias vive en global.R (reina, precomputada por arranque).
 
   datos_st <- reactive({
     req(input$st_causa, input$st_sexo)
@@ -1825,8 +1818,7 @@ server_causas <- function(input, output, session) {
   datos_st_clusters <- reactive({
     d <- datos_st()
     req(nrow(d) > 0)
-    nb <- vecinos_reina()
-    scan_espacio_temporal(d, nb, alpha = input$st_alpha)
+    scan_espacio_temporal(d, nb_provincias, alpha = input$st_alpha)
   }) %>% bindCache(input$st_causa, input$st_sexo, input$st_alpha)
 
   output$st_kpi_anos <- renderText({
@@ -1852,8 +1844,9 @@ server_causas <- function(input, output, session) {
   output$st_mapa <- renderLeaflet({
     cl <- datos_st_clusters()
     req(nrow(cl) > 0)
-    a <- unique(cl$Año_Num)
-    a_sel <- input$st_ano_map %||% max(a)
+    a <- sort(unique(cl$Año_Num))
+    a_sel <- suppressWarnings(as.numeric(input$st_ano))
+    if (length(a_sel) != 1 || !is.finite(a_sel) || !(a_sel %in% a)) a_sel <- max(a)
     df_map <- cl %>% filter(Año_Num == a_sel, p_valor < input$st_alpha)
     mapa_datos <- mapa_provincias %>% left_join(df_map, by = c("NAME_2" = "Provincia"))
     pal <- colorFactor(

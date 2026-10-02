@@ -550,6 +550,8 @@ ui_causas <- nav_panel(
                         selected = lista_defunciones[1]),
             radioButtons("st_sexo", "Sexo:", choices = c("Ambos", "Hombres", "Mujeres"), selected = "Ambos"),
             numericInput("st_alpha", "Nivel significancia:", value = 0.05, min = 0.01, max = 0.2, step = 0.01),
+            selectInput("st_ano", "Año del mapa:", choices = c(2022, 2021, 2020, 2019, 2018),
+                        selected = 2022),
             div(class = "filter-help", HTML(
               paste0("<b>Local Moran I</b> por año. Detecta clusters alto/alto (hotspots) y bajo/bajo (coldspots) ",
                      "con significancia estadística. Usa matriz de vecindad reina (contigüidad).")
