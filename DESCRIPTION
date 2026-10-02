@@ -9,7 +9,6 @@ Imports:
     data.table,
     DT,
     dplyr,
-    forecast,
     htmltools,
     leaflet,
     lmtest,

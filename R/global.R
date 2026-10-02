@@ -1793,49 +1793,6 @@ tiles_osm <- function(mapa) {
   )
 }
 
-# ---- PREDICCIÓN TEMPORAL (ETS simple vía forecast si está disponible) ----
-predecir_serie <- function(serie, h = 3, nivel = 0.95) {
-  if (!requireNamespace("forecast", quietly = TRUE) || nrow(serie) < 5) {
-    return(data.frame(Año_Num = integer(), Valor = numeric(), Tipo = character(),
-                      Li = numeric(), Ls = numeric()))
-  }
-  ts_obj <- stats::ts(serie$Valor, start = min(serie$Año_Num), frequency = 1)
-  fit <- tryCatch(forecast::ets(ts_obj), error = function(e) NULL)
-  if (is.null(fit)) return(data.frame())
-  fc <- forecast::forecast(fit, h = h, level = nivel * 100)
-  pred <- data.frame(
-    Año_Num = max(serie$Año_Num) + seq_len(h),
-    Valor = as.numeric(fc$mean),
-    Tipo = "Predicho",
-    Li = as.numeric(fc$lower[, 1]),
-    Ls = as.numeric(fc$upper[, 1]),
-    stringsAsFactors = FALSE
-  )
-  obs <- data.frame(
-    Año_Num = serie$Año_Num,
-    Valor = serie$Valor,
-    Tipo = "Observado",
-    Li = NA_real_,
-    Ls = NA_real_,
-    stringsAsFactors = FALSE
-  )
-  rbind(obs, pred)
-}
-
-# ---- DETECCIÓN DE CAMBIO DE REGIMEN (Pettitt test simple) ----
-pettitt_test <- function(x) {
-  n <- length(x)
-  if (n < 5) return(list(cambio = NA, p_valor = NA, estadistico = NA))
-  k_seq <- 2:(n - 1)
-  U <- sapply(k_seq, function(k) {
-    sum(sapply(1:k, function(i) sum(sign(x[i] - x[(k + 1):n]))))
-  })
-  K <- which.max(abs(U)) + 1
-  U_max <- max(abs(U))
-  p_valor <- 2 * exp((-6 * U_max^2) / (n^3 + n^2))
-  list(cambio = K, p_valor = p_valor, estadistico = U_max)
-}
-
 # ---- CLUSTER ESPACIO-TEMPORAL (scan statistic simple) ----
 # Subconjunto de lista de vecinas manteniendo clase nb e índices coherentes.
 reindex_nb <- function(nb, keep) {

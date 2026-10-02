@@ -497,50 +497,6 @@ ui_causas <- nav_panel(
         )
       ),
       nav_panel(
-        title = "Predicción y alertas",
-        layout_sidebar(
-          sidebar = sidebar(
-            title = "Configuración",
-            width = 290,
-            selectInput("fc_causa", "Causa:", choices = lista_defunciones,
-                        selected = lista_defunciones[1]),
-            selectInput("fc_provincia", "Provincia:", choices = sort(unique(causas_provinciales$Provincia)),
-                        selected = "Madrid"),
-            radioButtons("fc_sexo", "Sexo:", choices = c("Ambos", "Hombres", "Mujeres"), selected = "Ambos"),
-            numericInput("fc_horizonte", "Años a predecir:", value = 3, min = 1, max = 5, step = 1),
-            checkboxInput("fc_mostrar_ic", "Mostrar intervalos de confianza", value = TRUE),
-            div(class = "filter-help", HTML(
-              paste0("<b>ETS (Exponential Smoothing)</b> vía paquete <code>forecast</code>. ",
-                     "Requiere al menos 5 años de datos. ",
-                     "El test de Pettitt detecta cambios de régimen en la serie histórica.")
-            ))
-          ),
-          layout_columns(
-            col_widths = c(4, 4, 4),
-            value_box(title = "Tasa actual (2022)", value = textOutput("fc_kpi_actual"),
-                      showcase = bsicons::bs_icon("activity"), theme = "primary"),
-            value_box(title = "Predicción final", value = textOutput("fc_kpi_final"),
-                      showcase = bsicons::bs_icon("graph-up-arrow"), theme = "info"),
-            value_box(title = "Cambio de régimen", value = textOutput("fc_kpi_pettitt"),
-                      showcase = bsicons::bs_icon("exclamation-triangle"), theme = "warning")
-          ),
-          bslib::card(
-            card_header("Serie observada + predicción ETS"),
-            card_body(
-              div(class = "plotly-spinner", div(class = "spinner-ring")),
-              plotlyOutput("fc_serie", height = "450px")
-            )
-          ),
-          bslib::card(
-            card_header("Test de Pettitt (cambio de régimen)"),
-            card_body(
-              verbatimTextOutput("fc_pettitt_texto"),
-              HTML("<p class='text-muted'><small>H0: no hay cambio de nivel. p < 0.05 sugiere cambio estructural.</small></p>")
-            )
-          )
-        )
-      ),
-      nav_panel(
         title = "Clusters espacio-temporales",
         layout_sidebar(
           sidebar = sidebar(
@@ -566,13 +522,9 @@ ui_causas <- nav_panel(
             value_box(title = "Hotspots totales", value = textOutput("st_kpi_hot"),
                       showcase = bsicons::bs_icon("fire"), theme = "danger")
           ),
-          bslib::card(
-            card_header("Mapa de clusters por año"),
-            card_body(
-              div(class = "leaflet-spinner", div(class = "spinner-ring")),
-              leafletOutput("st_mapa", height = "500px")
-            )
-          ),
+            bslib::card(card_header("Mapa de clusters por año"),
+                        card_body(padding = 0, leafletOutput("st_mapa", height = "500px")),
+                        card_footer(uiOutput("st_mapa_nota"))),
           bslib::card(
             card_header("Provincias con clusters significativos"),
             card_body(DT::DTOutput("st_tabla"))
@@ -581,3 +533,4 @@ ui_causas <- nav_panel(
       )
     )
   )
+
