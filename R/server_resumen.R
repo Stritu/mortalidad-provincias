@@ -22,14 +22,14 @@ server_resumen <- function(input, output, session) {
     list("ir_c_prov", "Causas de defunción", "nav_causas", "Análisis provincial"),
     list("ir_c_est", "Causas de defunción", "nav_causas", "Estacionalidad"),
     list("ir_c_evo", "Causas de defunción", "nav_causas", "Evolución temporal"),
-    list("ir_c_comp", "Causas de defunción", "nav_causas", "Comparador de Provincias"),
+    list("ir_map", "Causas de defunción", "nav_causas", "Mapas provinciales"),
     list("ir_c_apvp", "Causas de defunción", "nav_causas", "Mortalidad prematura (APVP)"),
     list("ir_c_std", "Causas de defunción", "nav_causas", "Tasas estandarizadas por edad"),
     list("ir_c_edad", "Causas de defunción", "nav_causas", "Edad y mes"),
     list("ir_c_evit", "Causas de defunción", "nav_causas", "Mortalidad evitable"),
     list("ir_c_des", "Causas de defunción", "nav_causas", "Desigualdad territorial"),
     list("ir_c_al", "Causas de defunción", "nav_causas", "Alertas de atípicos"),
-    list("ir_c_cc", "Causas de defunción", "nav_causas", "Comparador de CCAA"),
+    list("ir_ct", "Causas de defunción", "nav_causas", "Comparador territorial"),
     list("ir_c_inf", "Causas de defunción", "nav_causas", "Informes"),
     list("ir_m_ana", "Métricas demográficas", "nav_metricas", "Análisis demográfico"),
     list("ir_m_comp", "Métricas demográficas", "nav_metricas", "Comparador demográfico"),
@@ -186,48 +186,5 @@ server_resumen <- function(input, output, session) {
     }, error = function(e) plotly_empty())
   })
   
-  # --- DISTRIBUCIÓN POR EDAD Y SEXO (RESUMEN GENERAL) SERVER ---
-  output$ped_edad_sexo <- renderPlotly({
-    # Pirámide fija con ambos sexos: hombres a la izquierda, mujeres a la derecha.
-    # La fuente agrega todo el periodo 2018-2022 (sin desglose anual).
-    df <- edad_com_data %>%
-      group_by(Edad, Sexo) %>%
-      summarise(Valor = sum(Defunciones, na.rm = TRUE), .groups = "drop") %>%
-      filter(is.finite(Valor), Sexo %in% c("Hombres", "Mujeres"))
-    req(nrow(df) > 0)
-    df$Edad <- factor(df$Edad, levels = orden_edad_com)
-    df_h <- df %>% filter(Sexo == "Hombres")
-    df_m <- df %>% filter(Sexo == "Mujeres")
-    max_v <- max(df$Valor, na.rm = TRUE) * 1.1
-    ticks <- seq(-round(max_v), round(max_v), length.out = 7)
-    plot_ly() %>%
-      add_trace(
-        data = df_h, x = ~-Valor, y = ~Edad,
-        type = "bar", orientation = "h",
-        name = "Hombres", marker = list(color = "#00B2A9", line = list(color = "white", width = 1)),
-        customdata = ~Valor,
-        hovertemplate = "<b>Edad: %{y}</b><br>Hombres: %{customdata:,.0f}<extra></extra>"
-      ) %>%
-      add_trace(
-        data = df_m, x = ~Valor, y = ~Edad,
-        type = "bar", orientation = "h",
-        name = "Mujeres", marker = list(color = "#FF6F61", line = list(color = "white", width = 1)),
-        hovertemplate = "<b>Edad: %{y}</b><br>Mujeres: %{x:,.0f}<extra></extra>"
-      ) %>%
-      layout(
-        barmode = "overlay",
-        bargap = 0.1,
-        hoverlabel = list(bgcolor = "white"),
-        xaxis = list(
-          title = "Defunciones",
-          range = c(-max_v, max_v),
-          tickmode = "array",
-          tickvals = ticks,
-          ticktext = format(abs(round(ticks)), big.mark = ".", decimal.mark = ",", trim = TRUE)
-        ),
-        yaxis = list(title = "Tramo de edad", categoryorder = "array", categoryarray = orden_edad_com),
-        legend = list(orientation = "h", x = 0.35, y = 1.05),
-        margin = list(l = 100, r = 30, t = 30, b = 60)
-      )
-  })
 }
+

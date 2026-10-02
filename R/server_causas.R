@@ -8,34 +8,106 @@ server_causas <- function(input, output, session) {
                     ". La tasa de la causa es defunciones / población × 100.000.")))
   })
   
-  output$p21_filtro_info <- renderUI({
-    req(input$p21_prov_a, input$p21_prov_b, input$p21_defuncion, input$p21_ano)
-    div(class = "filter-help",
-        HTML(paste0("<b>Comparación:</b> ", htmltools::htmlEscape(input$p21_prov_a),
-                    " vs. ", htmltools::htmlEscape(input$p21_prov_b),
-                    ". El radar usa ", htmltools::htmlEscape(input$p21_ano), ".")))
-  })
   
   # --- PESTAÑA 2 SERVER ---
+  # Tasa por causa: helper puro tasa_causa_prov() (global.R); aquí solo renombres.
   datos_p2 <- reactive({
     req(input$p2_defuncion, input$p2_ano, input$p2_sexo)
-    df <- causas_provinciales %>%
-      filter(Año == input$p2_ano, Defunción == input$p2_defuncion)
-    if (input$p2_sexo != "Ambos") df <- df %>% filter(Sexo == input$p2_sexo)
-    
-    df %>%
-      group_by(Provincia) %>%
-      summarise(
-        Total_Fallecidos = sum(Fallecidos, na.rm = TRUE),
-        Poblacion_Total = sum(Poblacion, na.rm = TRUE),
-        .groups = "drop"
-      ) %>%
-      mutate(Tasa = if_else(Poblacion_Total > 0,
-                            Total_Fallecidos / Poblacion_Total * 100000,
-                            NA_real_)) %>%
-      filter(is.finite(Tasa))
+    tasa_causa_prov(input$p2_ano, input$p2_sexo, input$p2_defuncion) %>%
+      transmute(Provincia, Total_Fallecidos = Fallecidos,
+                Poblacion_Total = Poblacion, Tasa)
   }) %>% bindCache(input$p2_defuncion, input$p2_ano, input$p2_sexo)
-  
+
+  # --- MAPA ÚNICO PROVINCIAL (los 4 indicadores en una tarjeta) ---
+  datos_map <- reactive({
+    req(input$map_ind, input$map_ano, input$map_sexo)
+    ind <- input$map_ind
+    if (ind == "Tasa por causa") {
+      req(input$map_causa)
+      df <- tasa_causa_prov(input$map_ano, input$map_sexo, input$map_causa)
+      list(df = df %>% transmute(Provincia, Valor = Tasa),
+           etiqueta = "Tasa", unidad = " / 100k", unidad_leg = "",
+           titulo = paste0("Tasa por causa: ", input$map_causa, " (", input$map_ano, ")"),
+           pal = PAL_YLORRD, desde_cero = TRUE, fmt = 1)
+    } else if (ind == "Estandarizada") {
+      df <- tasa_std_prov(input$map_ano, input$map_sexo)
+      req(nrow(df) > 0)
+      list(df = df %>% transmute(Provincia, Valor = Tasa_std, Bruta = Tasa_bruta),
+           etiqueta = "Estandarizada", unidad = " / 100k", unidad_leg = "",
+           titulo = paste0("Tasa estandarizada ESP 2013 (", input$map_ano, ")"),
+           pal = PAL_YLORRD, desde_cero = TRUE, fmt = 1)
+    } else if (ind == "% sensible") {
+      df <- tasa_sensible_prov(input$map_ano, input$map_sexo)
+      req(nrow(df) > 0)
+      list(df = df %>% transmute(Provincia, Valor = Pct),
+           etiqueta = "% sensible", unidad = " %", unidad_leg = " %",
+           titulo = paste0("% sensible a prevención/sanidad (", input$map_ano, ")"),
+           pal = PAL_YLGNBU, desde_cero = TRUE, fmt = 1)
+    } else {
+      req(input$map_causa)
+      df <- brecha_prov(input$map_ano, input$map_sexo, input$map_causa)
+      req(nrow(df) > 0)
+      list(df = df %>% transmute(Provincia, Valor = Ratio, Tasa),
+           etiqueta = "Ratio", unidad = "", unidad_leg = "",
+           titulo = paste0("Brecha frente a nacional (", input$map_ano, ")"),
+           pal = PAL_RDBU_REV, desde_cero = FALSE, fmt = 2)
+    }
+  }) %>% bindCache(input$map_ind, input$map_ano, input$map_sexo, input$map_causa)
+
+  output$map_titulo <- renderText({
+    datos_map()$titulo
+  })
+
+  output$map_kpi_max <- renderText({
+    m <- datos_map()
+    req(nrow(m$df) > 0)
+    x <- m$df %>% arrange(desc(Valor)) %>% slice(1)
+    paste0(x$Provincia, " (", format(round(x$Valor, m$fmt), big.mark = ".", decimal.mark = ","), m$unidad, ")")
+  })
+
+  output$map_kpi_min <- renderText({
+    m <- datos_map()
+    req(nrow(m$df) > 0)
+    x <- m$df %>% arrange(Valor) %>% slice(1)
+    paste0(x$Provincia, " (", format(round(x$Valor, m$fmt), big.mark = ".", decimal.mark = ","), m$unidad, ")")
+  })
+
+  output$map_mapa <- renderLeaflet({
+    m <- datos_map()
+    req(nrow(m$df) > 0)
+    md <- mapa_provincias %>% left_join(m$df, by = c("NAME_2" = "Provincia"))
+    dom <- if (m$desde_cero) {
+      vm <- suppressWarnings(max(md$Valor, na.rm = TRUE))
+      # Margen: el máximo exacto puede quedar fuera por coma flotante.
+      if (!is.finite(vm) || vm == 0) c(0, 1) else c(0, vm * 1.02 + 1e-9)
+    } else {
+      lim <- suppressWarnings(max(abs(md$Valor - 1), na.rm = TRUE))
+      if (!is.finite(lim) || lim == 0) {
+        c(0.9, 1.1)
+      } else {
+        mg <- 0.02 * lim + 1e-9
+        c(1 - lim - mg, 1 + lim + mg)
+      }
+    }
+    pal <- colorNumeric(palette = m$pal, domain = dom, na.color = "#E0E0E0")
+    fv <- function(v) format(round(v, m$fmt), decimal.mark = ",")
+    extra <- if ("Bruta" %in% names(md)) paste0("<br/>Bruta: ", fv(md$Bruta), " / 100k") else ""
+    extra <- if ("Tasa" %in% names(m$df) && !"Bruta" %in% names(m$df)) {
+      paste0("<br/>Tasa: ", fv(md$Tasa), " / 100k")
+    } else extra
+    etiquetas <- sprintf("<strong>%s</strong><br/>%s: %s%s%s",
+                         md$NAME_2, m$etiqueta, fv(md$Valor), m$unidad, extra) %>%
+      lapply(htmltools::HTML)
+    leaflet(md) %>%
+      tiles_osm() %>%
+      addPolygons(fillColor = ~pal(Valor), weight = 1, color = "white",
+                  fillOpacity = 0.8, label = etiquetas) %>%
+      addLegend(pal = pal, values = dom, opacity = 0.8, title = m$etiqueta,
+                position = "bottomright",
+                labFormat = labelFormat(suffix = m$unidad_leg, digits = m$fmt)) %>%
+      control_ano(input$map_ano)
+  })
+
   output$p2_kpi_total <- renderText({
     df <- datos_p2()
     if (nrow(df) == 0) return("-")
@@ -57,22 +129,6 @@ server_causas <- function(input, output, session) {
     paste0(min_row$Provincia, " (", format(round(min_row$Tasa, 2), big.mark = ".", decimal.mark = ","), ")")
   })
   
-  output$p2_mapa <- renderLeaflet({
-    df <- datos_p2()
-    mapa_datos <- mapa_provincias %>% left_join(df, by = c("NAME_2" = "Provincia"))
-    
-    val_max <- max(mapa_datos$Tasa, na.rm = TRUE)
-    dominio_colores <- if (is.infinite(val_max) || is.na(val_max) || val_max == 0) c(0, 1) else c(0, val_max)
-    pal <- colorNumeric(palette = PAL_YLORRD, domain = dominio_colores, na.color = "#E0E0E0")
-    
-    etiquetas <- sprintf("<strong>%s</strong><br/>Tasa de la causa: %s por 100k hab.", mapa_datos$NAME_2, format(round(mapa_datos$Tasa, 2), decimal.mark = ",")) %>% lapply(htmltools::HTML)
-    
-    leaflet(mapa_datos) %>%
-      tiles_osm() %>%
-      addPolygons(fillColor = ~pal(Tasa), weight = 1, color = "white", fillOpacity = 0.8, label = etiquetas) %>%
-      addLegend(pal = pal, values = dominio_colores, opacity = 0.8, title = "Tasa de la causa / 100k hab.", position = "bottomright") %>%
-      control_ano(input$p2_ano)
-  })
   
   output$p2_evolucion_top_bot <- renderPlotly({
     req(input$p2_defuncion)
@@ -246,16 +302,6 @@ server_causas <- function(input, output, session) {
       )
   })
   
-  observeEvent(input$p21_prov_a, {
-    req(input$p21_prov_a)
-    updateSelectInput(session, "p21_prov_a", label = paste0("Provincia: ", input$p21_prov_a))
-  }, ignoreInit = TRUE)
-  
-  observeEvent(input$p21_prov_b, {
-    req(input$p21_prov_b)
-    updateSelectInput(session, "p21_prov_b", label = paste0("Provincia: ", input$p21_prov_b))
-  }, ignoreInit = TRUE)
-  
   output$p2_tabla_resumen <- DT::renderDT({
     df <- datos_p2() %>%
       transmute(
@@ -274,161 +320,273 @@ server_causas <- function(input, output, session) {
       DT::formatRound("Tasa de la causa por 100.000 habitantes", 2, dec.mark = ",", mark = ".")
   })
   
-  # --- PESTAÑA 2.1 SERVER ---
-  output$p21_evol_nacional <- renderPlotly({
-    req(input$p21_prov_a, input$p21_prov_b, input$p21_defuncion)
-    
-    df_provs <- causas_provinciales %>% 
-      filter(Defunción == input$p21_defuncion, Provincia %in% c(input$p21_prov_a, input$p21_prov_b)) %>%
-      group_by(Año, Provincia) %>%
-      summarise(Fallecidos = sum(Total, na.rm = TRUE),
-                Poblacion = sum(Poblacion, na.rm = TRUE), .groups = "drop") %>%
-      mutate(Tasa = if_else(Poblacion > 0, Fallecidos / Poblacion * 100000, NA_real_),
-             Ano_Num = as.numeric(Año)) %>%
+  # --- COMPARADOR TERRITORIAL (nivel Provincia/CCAA, A frente a B o nacional) ---
+  observe({
+    req(input$ct_nivel)
+    vals <- if (input$ct_nivel == "CCAA") sort(unique(causas_provinciales$Comunidad)) else sort(unique(causas_provinciales$Provincia))
+    updateSelectInput(session, "ct_a", choices = vals,
+                      selected = if ("Madrid" %in% vals) "Madrid" else vals[1])
+    updateSelectInput(session, "ct_b", choices = c("Media nacional", vals),
+                      selected = "Media nacional")
+  })
+
+  # Si A y B coinciden (y B no es la nacional), B vuelve a la nacional.
+  observe({
+    req(input$ct_a, input$ct_b)
+    if (input$ct_b != "Media nacional" && identical(input$ct_a, input$ct_b))
+      updateSelectInput(session, "ct_b", selected = "Media nacional")
+  })
+
+  # FIX: población con distinct por venir repetida en cada fila de causa.
+  datos_ct <- reactive({
+    req(input$ct_nivel, input$ct_a, input$ct_b, input$ct_causa, input$ct_ano, input$ct_sexo)
+    df <- causas_provinciales
+    if (input$ct_sexo != "Ambos") df <- df %>% filter(Sexo == input$ct_sexo)
+    base <- df %>%
+      group_by(Año, Año_Num, Provincia, Comunidad, Defunción) %>%
+      summarise(F = sum(Fallecidos, na.rm = TRUE), .groups = "drop")
+    pob <- df %>%
+      distinct(Año, Año_Num, Provincia, Sexo, Poblacion) %>%
+      group_by(Año, Año_Num, Provincia) %>%
+      summarise(P = sum(Poblacion, na.rm = TRUE), .groups = "drop")
+    if (input$ct_nivel == "CCAA") {
+      prov_com <- distinct(df, Provincia, Comunidad)
+      base <- base %>%
+        group_by(Año, Año_Num, Entidad = Comunidad, Defunción) %>%
+        summarise(F = sum(F, na.rm = TRUE), .groups = "drop")
+      pob <- pob %>%
+        left_join(prov_com, by = "Provincia") %>%
+        group_by(Año, Año_Num, Entidad = Comunidad) %>%
+        summarise(P = sum(P, na.rm = TRUE), .groups = "drop")
+    } else {
+      base <- base %>% transmute(Año, Año_Num, Entidad = Provincia, Defunción, F)
+      pob <- pob %>% transmute(Año, Año_Num, Entidad = Provincia, P)
+    }
+    # Capítulo-año: tasas por entidad.
+    cap <- base %>%
+      filter(Año == input$ct_ano) %>%
+      group_by(Entidad, Defunción) %>%
+      summarise(F = sum(F, na.rm = TRUE), .groups = "drop") %>%
+      left_join(pob %>% filter(Año == input$ct_ano) %>% select(Entidad, P),
+                by = "Entidad") %>%
+      mutate(Tasa = if_else(P > 0, F / P * 100000, NA_real_)) %>%
       filter(is.finite(Tasa))
-    
-    df_nac <- causas_provinciales %>% 
-      filter(Defunción == input$p21_defuncion) %>%
-      group_by(Año) %>%
-      summarise(Fallecidos = sum(Total, na.rm = TRUE),
-                Poblacion = sum(Poblacion, na.rm = TRUE), .groups = "drop") %>%
-      mutate(Tasa = if_else(Poblacion > 0, Fallecidos / Poblacion * 100000, NA_real_),
-             Provincia = "Tasa nacional",
-             Ano_Num = as.numeric(Año)) %>%
+    pn_ano <- sum(pob$P[pob$Año == input$ct_ano], na.rm = TRUE)
+    nac <- base %>%
+      filter(Año == input$ct_ano) %>%
+      group_by(Defunción) %>%
+      summarise(Fn = sum(F, na.rm = TRUE), .groups = "drop") %>%
+      mutate(Tasa_nac = Fn / pn_ano * 100000)
+    # Evolución de la causa (o total): A, B y nacional.
+    ev_base <- base
+    if (input$ct_causa != "Todas") ev_base <- ev_base %>% filter(Defunción == input$ct_causa)
+    pob_ano <- pob %>%
+      group_by(Año, Año_Num, Entidad) %>%
+      summarise(P = sum(P, na.rm = TRUE), .groups = "drop")
+    ev <- ev_base %>%
+      group_by(Año, Año_Num, Entidad) %>%
+      summarise(F = sum(F, na.rm = TRUE), .groups = "drop") %>%
+      left_join(pob_ano, by = c("Año", "Año_Num", "Entidad")) %>%
+      mutate(Tasa = if_else(P > 0, F / P * 100000, NA_real_)) %>%
       filter(is.finite(Tasa))
-    
+    ev_nac <- ev_base %>%
+      group_by(Año, Año_Num) %>%
+      summarise(F = sum(F, na.rm = TRUE), .groups = "drop") %>%
+      left_join(pob %>% group_by(Año, Año_Num) %>%
+                  summarise(P = sum(P, na.rm = TRUE), .groups = "drop"),
+                by = c("Año", "Año_Num")) %>%
+      mutate(Tasa = if_else(P > 0, F / P * 100000, NA_real_)) %>%
+      filter(is.finite(Tasa)) %>%
+      arrange(Año_Num)
+    list(cap = cap, nac = nac, ev = ev, ev_nac = ev_nac)
+  }) %>% bindCache(input$ct_nivel, input$ct_a, input$ct_b, input$ct_causa,
+                   input$ct_ano, input$ct_sexo)
+
+  # Referencia efectiva: B, o nacional si B es la nacional o coincide con A.
+  ct_ref <- function() {
+    if (input$ct_b == "Media nacional" || identical(input$ct_a, input$ct_b)) "NACIONAL" else input$ct_b
+  }
+
+  output$ct_info <- renderUI({
+    req(input$ct_a, input$ct_b, input$ct_causa, input$ct_ano)
+    ref <- if (ct_ref() == "NACIONAL") "la media nacional" else ct_ref()
+    div(class = "filter-help",
+        HTML(paste0("<b>A:</b> ", htmltools::htmlEscape(input$ct_a),
+                    " · <b>Ref:</b> ", htmltools::htmlEscape(ref),
+                    " · <b>Causa:</b> ", htmltools::htmlEscape(input$ct_causa),
+                    " · <b>Año:</b> ", htmltools::htmlEscape(as.character(input$ct_ano)), ".")))
+  })
+
+  # Tasa de A y de referencia (causa y año) para KPIs.
+  datos_ct_kpi <- function() {
+    d <- datos_ct()
+    a <- d$cap %>% filter(Entidad == input$ct_a)
+    if (input$ct_causa != "Todas") a <- a %>% filter(Defunción == input$ct_causa)
+    f_a <- sum(a$F, na.rm = TRUE)
+    p_a <- if (nrow(a)) a$P[1] else NA_real_
+    t_a <- if (is.finite(p_a) && p_a > 0) f_a / p_a * 100000 else NA_real_
+    if (ct_ref() == "NACIONAL") {
+      n <- d$nac
+      if (input$ct_causa != "Todas") n <- n %>% filter(Defunción == input$ct_causa)
+      f_r <- sum(n$Fn, na.rm = TRUE)
+      pn <- sum(unique(d$cap$P), na.rm = TRUE)
+      t_r <- if (is.finite(pn) && pn > 0) f_r / pn * 100000 else NA_real_
+    } else {
+      b <- d$cap %>% filter(Entidad == ct_ref())
+      if (input$ct_causa != "Todas") b <- b %>% filter(Defunción == input$ct_causa)
+      f_r <- sum(b$F, na.rm = TRUE)
+      p_r <- if (nrow(b)) b$P[1] else NA_real_
+      t_r <- if (is.finite(p_r) && p_r > 0) f_r / p_r * 100000 else NA_real_
+    }
+    list(t_a = t_a, t_r = t_r)
+  }
+
+  output$ct_kpi_tasa <- renderText({
+    k <- datos_ct_kpi()
+    if (!is.finite(k$t_a)) return("-")
+    ref_nom <- if (ct_ref() == "NACIONAL") "nac" else "B"
+    paste0(format(round(k$t_a, 1), big.mark = ".", decimal.mark = ","),
+           " / 100k (", ref_nom, ": ",
+           format(round(k$t_r, 1), big.mark = ".", decimal.mark = ","), ")")
+  })
+
+  output$ct_kpi_brecha <- renderText({
+    k <- datos_ct_kpi()
+    if (!is.finite(k$t_a) || !is.finite(k$t_r) || k$t_r == 0) return("-")
+    b <- (k$t_a - k$t_r) / k$t_r * 100
+    paste0(ifelse(b >= 0, "+", ""), format(round(b, 1), decimal.mark = ","), " %")
+  })
+
+  output$ct_kpi_top <- renderText({
+    d <- datos_ct()
+    a <- d$cap %>% filter(Entidad == input$ct_a) %>% select(Defunción, Tasa_a = Tasa)
+    if (ct_ref() == "NACIONAL") {
+      r <- a %>% left_join(d$nac %>% select(Defunción, Tasa_nac), by = "Defunción") %>%
+        mutate(Ratio = if_else(Tasa_nac > 0, Tasa_a / Tasa_nac, NA_real_))
+    } else {
+      r <- a %>% left_join(d$cap %>% filter(Entidad == ct_ref()) %>%
+                             select(Defunción, Tasa_b = Tasa), by = "Defunción") %>%
+        mutate(Ratio = if_else(Tasa_b > 0, Tasa_a / Tasa_b, NA_real_))
+    }
+    r <- r %>% filter(is.finite(Ratio)) %>% arrange(desc(Ratio))
+    if (!nrow(r)) return("-")
+    paste0(substr(r$Defunción[1], 1, 28), " (×",
+           format(round(r$Ratio[1], 2), decimal.mark = ","), ")")
+  })
+
+  output$ct_evol <- renderPlotly({
+    d <- datos_ct()
+    ev_a <- d$ev %>% filter(Entidad == input$ct_a) %>% arrange(Año_Num)
+    req(nrow(ev_a) > 0)
     p <- plot_ly()
-    
-    df_a <- df_provs %>% filter(Provincia == input$p21_prov_a)
-    if(nrow(df_a) > 0) {
-      p <- p %>% add_trace(data = df_a, x = ~Ano_Num, y = ~Tasa, name = input$p21_prov_a,
-                           type = "scatter", mode = "lines+markers",
-                           line = list(color = "#1f77b4", width = 3),
-                           marker = list(color = "#1f77b4", size = 8, line = list(color = "white", width = 1.5)),
-                           hovertemplate = "<b>%{fullData.name}</b><br>Año: %{x}<br>Tasa: %{y:.1f}<extra></extra>")
+    p <- add_trace(p, data = ev_a, x = ~Año_Num, y = ~Tasa, name = input$ct_a,
+                   type = "scatter", mode = "lines+markers",
+                   line = list(color = "#1f77b4", width = 3),
+                   marker = list(color = "#1f77b4", size = 8, line = list(color = "white", width = 1.5)),
+                   hovertemplate = "<b>%{fullData.name}</b><br>Año: %{x}<br>Tasa: %{y:.1f}<extra></extra>")
+    if (ct_ref() != "NACIONAL") {
+      ev_b <- d$ev %>% filter(Entidad == ct_ref()) %>% arrange(Año_Num)
+      if (nrow(ev_b) > 0) {
+        p <- add_trace(p, data = ev_b, x = ~Año_Num, y = ~Tasa, name = ct_ref(),
+                       type = "scatter", mode = "lines+markers",
+                       line = list(color = "#ff7f0e", width = 3),
+                       marker = list(color = "#ff7f0e", size = 8, line = list(color = "white", width = 1.5)),
+                       hovertemplate = "<b>%{fullData.name}</b><br>Año: %{x}<br>Tasa: %{y:.1f}<extra></extra>")
+      }
     }
-    
-    df_b <- df_provs %>% filter(Provincia == input$p21_prov_b)
-    if(nrow(df_b) > 0) {
-      p <- p %>% add_trace(data = df_b, x = ~Ano_Num, y = ~Tasa, name = input$p21_prov_b,
-                           type = "scatter", mode = "lines+markers",
-                           line = list(color = "#ff7f0e", width = 3),
-                           marker = list(color = "#ff7f0e", size = 8, line = list(color = "white", width = 1.5)),
-                           hovertemplate = "<b>%{fullData.name}</b><br>Año: %{x}<br>Tasa: %{y:.1f}<extra></extra>")
-    }
-    
-    p <- p %>% add_trace(data = df_nac, x = ~Ano_Num, y = ~Tasa, name = "Tasa nacional",
-                         type = "scatter", mode = "lines+markers",
-                         line = list(color = "#2c3e50", width = 2.5, dash = "dash"),
-                         marker = list(color = "#2c3e50", size = 6, line = list(color = "white", width = 1)),
-                         hovertemplate = "<b>Tasa nacional</b><br>Año: %{x}<br>Tasa: %{y:.1f}<extra></extra>")
-    
+    p <- add_trace(p, data = d$ev_nac, x = ~Año_Num, y = ~Tasa, name = "Media nacional",
+                   type = "scatter", mode = "lines+markers",
+                   line = list(color = "#1a2f47", width = 2.5, dash = "dash"),
+                   marker = list(color = "#1a2f47", size = 6, line = list(color = "white", width = 1)),
+                   hovertemplate = "<b>Media nacional</b><br>Año: %{x}<br>Tasa: %{y:.1f}<extra></extra>")
     p %>% layout(
       xaxis = list(title = "Año", tickmode = "linear", dtick = 1, showgrid = TRUE, gridcolor = "#E5E5E5"),
-      yaxis = list(title = "Tasa de la causa (por 100k hab.)", showgrid = TRUE, gridcolor = "#E5E5E5"),
+      yaxis = list(title = "Tasa (por 100k hab.)", showgrid = TRUE, gridcolor = "#E5E5E5"),
       hovermode = "x unified",
       hoverlabel = list(bgcolor = "white"),
       legend = list(orientation = "h", x = 0.2, y = 1.12),
       margin = list(l = 50, r = 20, t = 10, b = 40)
     )
   })
-  
-  color_prov_a <- "#1f77b4"
-  color_prov_b <- "#ff7f0e"
-  
-  construir_radar_provincia <- function(prov_sel, ano_sel, tipo = c("top", "bottom"), color = "#1f77b4") {
-    tipo <- match.arg(tipo)
-    req(prov_sel, ano_sel)
-    
-    df <- causas_provinciales %>%
-      filter(Provincia == prov_sel)
-    
-    if (ano_sel != "Todos los años") {
-      df <- df %>% filter(Año == ano_sel)
-    }
-    
-    # FIX: tasa ponderada por población (defunciones/población × 100k).
-    # Antes se usaba la media simple de las tasas por sexo y año, que no
-    # equivale a la tasa del periodo (los años/sexos pesan distinto).
-    df <- df %>%
-      group_by(Defunción) %>%
-      summarise(
-        Fallecidos = sum(Total, na.rm = TRUE),
-        Poblacion = sum(Poblacion, na.rm = TRUE),
-        .groups = "drop"
-      ) %>%
-      mutate(Tasa = if_else(Poblacion > 0, Fallecidos / Poblacion * 100000, NA_real_)) %>%
-      filter(is.finite(Tasa), Tasa >= 0)
-    
-    df <- if (tipo == "top") {
-      df %>% arrange(desc(Tasa)) %>% slice_head(n = 6)
+
+  output$ct_radar <- renderPlotly({
+    d <- datos_ct()
+    a <- d$cap %>% filter(Entidad == input$ct_a) %>%
+      transmute(Etiqueta = stringr::str_wrap(Defunción, width = 22), Tasa_a = Tasa) %>%
+      arrange(Etiqueta)
+    if (ct_ref() == "NACIONAL") {
+      r <- d$nac %>% transmute(Etiqueta = stringr::str_wrap(Defunción, width = 22), Tasa_r = Tasa_nac)
+      nom_r <- "Media nacional"
     } else {
-      df %>% filter(Tasa > 0) %>% arrange(Tasa) %>% slice_head(n = 6)
+      r <- d$cap %>% filter(Entidad == ct_ref()) %>%
+        transmute(Etiqueta = stringr::str_wrap(Defunción, width = 22), Tasa_r = Tasa)
+      nom_r <- ct_ref()
     }
-    
-    validate(need(nrow(df) >= 3, "No hay suficientes causas para construir el radar."))
-    df$Defuncion_Short <- stringr::str_wrap(df$Defunción, width = 18)
-    max_tasa <- max(df$Tasa, na.rm = TRUE)
-    if (!is.finite(max_tasa) || max_tasa <= 0) max_tasa <- 1
-    
-    alpha_fill <- if (tipo == "top") "0.35" else "0.20"
-    fill_rgba <- function(hex, alpha) {
-      rgbv <- grDevices::col2rgb(hex)[,1]
-      paste0("rgba(", paste(rgbv, collapse = ","), ", ", alpha, ")")
+    m <- a %>% left_join(r, by = "Etiqueta")
+    req(nrow(m) > 0)
+    plot_ly(type = "scatterpolar", fill = "toself", mode = "lines+markers") %>%
+      add_trace(r = m$Tasa_a, theta = m$Etiqueta, name = input$ct_a,
+                marker = list(color = "#1f77b4"), fillcolor = "rgba(31,119,180,0.25)",
+                hovertemplate = "<b>%{theta}</b><br>Tasa: %{r:.1f}<extra></extra>") %>%
+      add_trace(r = m$Tasa_r, theta = m$Etiqueta, name = nom_r,
+                marker = list(color = "#ff7f0e"), fillcolor = "rgba(255,127,14,0.25)",
+                hovertemplate = "<b>%{theta}</b><br>Tasa: %{r:.1f}<extra></extra>") %>%
+      layout(polar = list(radialaxis = list(visible = TRUE)),
+             legend = list(orientation = "h", y = -0.15),
+             hoverlabel = list(bgcolor = "white"),
+             margin = list(l = 40, r = 40, b = 80, t = 20))
+  })
+
+  output$ct_brechas <- renderPlotly({
+    d <- datos_ct()
+    a <- d$cap %>% filter(Entidad == input$ct_a) %>% select(Defunción, Tasa_a = Tasa)
+    if (ct_ref() == "NACIONAL") {
+      r <- a %>% left_join(d$nac %>% select(Defunción, Tasa_nac), by = "Defunción") %>%
+        mutate(Ratio = if_else(Tasa_nac > 0, Tasa_a / Tasa_nac, NA_real_))
+    } else {
+      r <- a %>% left_join(d$cap %>% filter(Entidad == ct_ref()) %>%
+                             select(Defunción, Tasa_b = Tasa), by = "Defunción") %>%
+        mutate(Ratio = if_else(Tasa_b > 0, Tasa_a / Tasa_b, NA_real_))
     }
-    
-    vals <- c(df$Tasa, df$Tasa[1])
-    cats <- c(df$Defuncion_Short, df$Defuncion_Short[1])
-    hover <- c(paste0(df$Defunción, "<br>Tasa: ", format(round(df$Tasa, 1), decimal.mark = ",")),
-               paste0(df$Defunción[1], "<br>Tasa: ", format(round(df$Tasa[1], 1), decimal.mark = ",")))
-    
-    plot_ly(
-      r = vals, theta = cats, text = hover,
-      type = "scatterpolar", mode = "lines+markers",
-      fill = "toself",
-      fillcolor = fill_rgba(color, alpha_fill),
-      line = list(color = color, width = 2),
-      marker = list(color = color, size = 6),
-      hovertemplate = "%{text}<extra></extra>"
-    ) %>%
-      layout(
-        polar = list(
-          radialaxis = list(visible = TRUE, range = c(0, max_tasa * 1.1)),
-          angularaxis = list(tickfont = list(size = 10))
-        ),
-        margin = list(l = 40, r = 40, t = 20, b = 20),
-        showlegend = FALSE
-      )
-  }
-  
-  output$p21_radar_title_a <- renderUI({
-    req(input$p21_prov_a)
-    paste0("6 causas principales — ", input$p21_prov_a)
+    df <- r %>% filter(is.finite(Ratio)) %>% arrange(Ratio)
+    req(nrow(df) > 0)
+    lim <- suppressWarnings(max(abs(df$Ratio - 1)))
+    if (!is.finite(lim) || lim == 0) lim <- 0.1
+    plot_ly(df, x = ~Ratio, y = ~reorder(Defunción, Ratio), type = "bar", orientation = "h",
+            marker = list(color = ~Ratio, colorscale = escala_plotly(PAL_RDBU_REV),
+                          cmin = 1 - lim, cmax = 1 + lim, showscale = TRUE,
+                          colorbar = list(title = "Ratio"),
+                          line = list(color = "white", width = 1)),
+            hovertemplate = "<b>%{y}</b><br>Ratio: %{x:.2f}<extra></extra>") %>%
+      layout(xaxis = list(title = "Ratio frente a la referencia"),
+             yaxis = list(title = "", tickfont = list(size = 10)),
+             hoverlabel = list(bgcolor = "white"),
+             shapes = list(list(type = "line", x0 = 1, x1 = 1, y0 = 0, y1 = 1,
+                                yref = "paper",
+                                line = list(color = "black", dash = "dash"))),
+             margin = list(l = 220, r = 20, b = 60, t = 20))
   })
-  output$p21_radar_title_b <- renderUI({
-    req(input$p21_prov_b)
-    paste0("6 causas principales — ", input$p21_prov_b)
-  })
-  output$p21_radar_bottom_title_a <- renderUI({
-    req(input$p21_prov_a)
-    paste0("6 causas menos frecuentes — ", input$p21_prov_a)
-  })
-  output$p21_radar_bottom_title_b <- renderUI({
-    req(input$p21_prov_b)
-    paste0("6 causas menos frecuentes — ", input$p21_prov_b)
-  })
-  
-  output$p21_radar_a <- renderPlotly({
-    construir_radar_provincia(input$p21_prov_a, input$p21_ano, "top", color_prov_a)
-  })
-  output$p21_radar_b <- renderPlotly({
-    construir_radar_provincia(input$p21_prov_b, input$p21_ano, "top", color_prov_b)
-  })
-  output$p21_radar_a_bot <- renderPlotly({
-    construir_radar_provincia(input$p21_prov_a, input$p21_ano, "bottom", color_prov_a)
-  })
-  output$p21_radar_b_bot <- renderPlotly({
-    construir_radar_provincia(input$p21_prov_b, input$p21_ano, "bottom", color_prov_b)
+
+  output$ct_tabla <- DT::renderDT({
+    d <- datos_ct()
+    a <- d$cap %>% filter(Entidad == input$ct_a) %>% select(Defunción, Tasa_a = Tasa)
+    if (ct_ref() == "NACIONAL") {
+      r <- a %>% left_join(d$nac %>% select(Defunción, Tasa_nac), by = "Defunción") %>%
+        transmute(Capítulo = Defunción, `Tasa A` = round(Tasa_a, 1),
+                  Referencia = round(Tasa_nac, 1),
+                  Ratio = round(if_else(Tasa_nac > 0, Tasa_a / Tasa_nac, NA_real_), 3))
+    } else {
+      r <- a %>% left_join(d$cap %>% filter(Entidad == ct_ref()) %>%
+                             select(Defunción, Tasa_b = Tasa), by = "Defunción") %>%
+        transmute(Capítulo = Defunción, `Tasa A` = round(Tasa_a, 1),
+                  Referencia = round(Tasa_b, 1),
+                  Ratio = round(if_else(Tasa_b > 0, Tasa_a / Tasa_b, NA_real_), 3))
+    }
+    tab <- r %>% arrange(desc(Ratio))
+    DT::datatable(tab, options = list(pageLength = 13, autoWidth = TRUE, scrollX = TRUE),
+                  rownames = FALSE) %>%
+      DT::formatRound(c("Tasa A", "Referencia", "Ratio"), c(1, 1, 3),
+                      dec.mark = ",", mark = ".")
   })
   
 
@@ -677,13 +835,7 @@ server_causas <- function(input, output, session) {
   # --- TASAS ESTANDARIZADAS POR EDAD SERVER (solo si existen los ficheros) ---
   datos_std_sel <- reactive({
     req(!is.null(datos_edad_std), input$std_ano, input$std_sexo)
-    datos_edad_std$resumen %>%
-      filter(Año == as.character(input$std_ano),
-             Sexo == input$std_sexo) %>%
-      filter(is.finite(Tasa_bruta), is.finite(Tasa_std)) %>%
-      mutate(Puesto_bruta = rank(-Tasa_bruta, ties.method = "min"),
-             Puesto_std = rank(-Tasa_std, ties.method = "min"),
-             Cambio = Puesto_std - Puesto_bruta)
+    tasa_std_prov(input$std_ano, input$std_sexo)
   })
 
   output$std_kpi_max <- renderText({
@@ -707,23 +859,6 @@ server_causas <- function(input, output, session) {
     paste0(x$Provincia, " (bruta: ", x$Puesto_bruta, " → std: ", x$Puesto_std, ")")
   })
 
-  output$std_mapa <- renderLeaflet({
-    df <- datos_std_sel()
-    mapa_datos <- mapa_provincias %>% left_join(df, by = c("NAME_2" = "Provincia"))
-    val_max <- max(mapa_datos$Tasa_std, na.rm = TRUE)
-    dominio <- if (!is.finite(val_max) || val_max <= 0) c(0, 1) else c(0, val_max)
-    pal <- colorNumeric(palette = PAL_YLORRD, domain = dominio, na.color = "#E0E0E0")
-    etiquetas <- sprintf("<strong>%s</strong><br/>Bruta: %s<br/>Estandarizada: %s por 100k hab.",
-                         mapa_datos$NAME_2,
-                         format(round(mapa_datos$Tasa_bruta, 1), decimal.mark = ","),
-                         format(round(mapa_datos$Tasa_std, 1), decimal.mark = ",")) %>%
-      lapply(htmltools::HTML)
-    leaflet(mapa_datos) %>%
-      tiles_osm() %>%
-      addPolygons(fillColor = ~pal(Tasa_std), weight = 1, color = "white", fillOpacity = 0.8, label = etiquetas) %>%
-      addLegend(pal = pal, values = dominio, opacity = 0.8, title = "Tasa std / 100k", position = "bottomright") %>%
-      control_ano(input$std_ano)
-  })
 
   output$std_scatter <- renderPlotly({
     df <- datos_std_sel()
@@ -967,52 +1102,14 @@ server_causas <- function(input, output, session) {
   })
 
   # --- MORTALIDAD EVITABLE (aproximación por capítulos, sin límite <75) ---
-  cesta_evitable <- c(
-    "Causas externas de mortalidad" = "Prevenible",
-    "Enfermedades infecciosas y parasitarias" = "Prevenible",
-    "Enfermedades del sistema circulatorio" = "Tratable",
-    "Enfermedades del sistema genitourinario" = "Tratable",
-    "Embarazo, parto y puerperio" = "Tratable",
-    "Afecciones originadas en el periodo perinatal" = "Tratable",
-    "Tumores" = "Mixto",
-    "Enfermedades del sistema respiratorio" = "Mixto",
-    "Enfermedades del sistema digestivo" = "Mixto",
-    "Enfermedades endocrinas, nutricionales y metabólicas" = "Mixto"
-  )
-  cesta_palanca <- c(
-    "Prevenible" = "Prevención primaria y salud pública",
-    "Tratable" = "Detección precoz y sistema asistencial",
-    "Mixto" = "Mezcla causas evitables y no evitables",
-    "Resto" = "Sin palanca clara a este nivel de desglose"
-  )
-  cesta_colores <- c("Prevenible" = "#0E9F8A", "Tratable" = "#1a2f47",
-                     "Mixto" = "#E8A838", "Resto" = "#BDBDBD")
-
-  asignar_cesta <- function(defuncion) {
-    cesta <- unname(cesta_evitable[as.character(defuncion)])
-    cesta[is.na(cesta)] <- "Resto"
-    factor(cesta, levels = c("Prevenible", "Tratable", "Mixto", "Resto"))
-  }
+  # Cestas y asignar_cesta() viven en global.R (las usa también el mapa único).
 
   # FIX: la población se extrae con distinct(Provincia, Sexo) porque viene
   # repetida en cada fila de causa; sumarla por causa la multiplicaría ×17.
+  # Sensible por provincia: helper puro tasa_sensible_prov() (global.R).
   datos_pev <- reactive({
     req(input$pev_ano, input$pev_sexo)
-    df <- causas_provinciales %>% filter(Año == input$pev_ano)
-    if (input$pev_sexo != "Ambos") df <- df %>% filter(Sexo == input$pev_sexo)
-    df <- df %>% mutate(Cesta = asignar_cesta(Defunción), Sensible = Cesta != "Resto")
-    pob <- df %>%
-      distinct(Provincia, Sexo, Poblacion) %>%
-      group_by(Provincia) %>%
-      summarise(Poblacion = sum(Poblacion, na.rm = TRUE), .groups = "drop")
-    df %>%
-      group_by(Provincia, Comunidad) %>%
-      summarise(Fall_Sens = sum(Fallecidos[Sensible], na.rm = TRUE),
-                Fall_Tot = sum(Fallecidos, na.rm = TRUE), .groups = "drop") %>%
-      left_join(pob, by = "Provincia") %>%
-      mutate(Pct = if_else(Fall_Tot > 0, Fall_Sens / Fall_Tot * 100, NA_real_),
-             Tasa = if_else(Poblacion > 0, Fall_Sens / Poblacion * 100000, NA_real_)) %>%
-      filter(is.finite(Pct), is.finite(Tasa))
+    tasa_sensible_prov(input$pev_ano, input$pev_sexo)
   }) %>% bindCache(input$pev_ano, input$pev_sexo)
 
   datos_pev_evol <- reactive({
@@ -1055,22 +1152,6 @@ server_causas <- function(input, output, session) {
            format(round(df$Pct[1], 1), big.mark = ".", decimal.mark = ","), " %)")
   })
 
-  output$pev_mapa <- renderLeaflet({
-    df <- datos_pev()
-    mapa_datos <- mapa_provincias %>% left_join(df, by = c("NAME_2" = "Provincia"))
-    val_max <- suppressWarnings(max(mapa_datos$Pct, na.rm = TRUE))
-    dominio_colores <- if (!is.finite(val_max) || val_max == 0) c(0, 1) else c(0, val_max)
-    pal <- colorNumeric(palette = PAL_YLGNBU, domain = dominio_colores, na.color = "#E0E0E0")
-    etiquetas <- sprintf("<strong>%s</strong><br/>%% sensible: %s %%", mapa_datos$NAME_2,
-                         format(round(mapa_datos$Pct, 1), decimal.mark = ",")) %>% lapply(htmltools::HTML)
-    leaflet(mapa_datos) %>%
-      tiles_osm() %>%
-      addPolygons(fillColor = ~pal(Pct), weight = 1, color = "white",
-                  fillOpacity = 0.8, label = etiquetas) %>%
-      addLegend(pal = pal, values = dominio_colores, opacity = 0.8,
-                title = "% sensible", position = "bottomright",
-                labFormat = labelFormat(suffix = " %", digits = 1))
-  })
 
   output$pev_evol <- renderPlotly({
     df <- datos_pev_evol()
@@ -1131,23 +1212,10 @@ server_causas <- function(input, output, session) {
 
   # FIX: la población se extrae con distinct(Provincia, Sexo) porque viene
   # repetida en cada fila de causa; con "Todas" se suman los capítulos.
+  # Brechas por provincia: helper puro brecha_prov() (global.R).
   datos_des <- reactive({
     req(input$des_ano, input$des_sexo, input$des_causa)
-    df <- causas_provinciales %>% filter(Año == input$des_ano)
-    if (input$des_sexo != "Ambos") df <- df %>% filter(Sexo == input$des_sexo)
-    if (input$des_causa != "Todas") df <- df %>% filter(Defunción == input$des_causa)
-    pob <- df %>%
-      distinct(Provincia, Sexo, Poblacion) %>%
-      group_by(Provincia) %>%
-      summarise(Poblacion = sum(Poblacion, na.rm = TRUE), .groups = "drop")
-    prov <- df %>%
-      group_by(Provincia) %>%
-      summarise(Fallecidos = sum(Fallecidos, na.rm = TRUE), .groups = "drop") %>%
-      left_join(pob, by = "Provincia") %>%
-      mutate(Tasa = if_else(Poblacion > 0, Fallecidos / Poblacion * 100000, NA_real_)) %>%
-      filter(is.finite(Tasa))
-    tasa_nac <- sum(prov$Fallecidos) / sum(prov$Poblacion) * 100000
-    prov %>% mutate(Ratio = Tasa / tasa_nac)
+    brecha_prov(input$des_ano, input$des_sexo, input$des_causa)
   }) %>% bindCache(input$des_ano, input$des_sexo, input$des_causa)
 
   datos_des_evol <- reactive({
@@ -1193,25 +1261,6 @@ server_causas <- function(input, output, session) {
            big.mark = ".", decimal.mark = ",")
   })
 
-  output$des_mapa <- renderLeaflet({
-    df <- datos_des()
-    mapa_datos <- mapa_provincias %>% left_join(df, by = c("NAME_2" = "Provincia"))
-    lim <- suppressWarnings(max(abs(mapa_datos$Ratio - 1), na.rm = TRUE))
-    dominio_colores <- if (!is.finite(lim) || lim == 0) c(0.9, 1.1) else c(1 - lim, 1 + lim)
-    pal <- colorNumeric(palette = PAL_RDBU_REV, domain = dominio_colores, na.color = "#E0E0E0")
-    etiquetas <- sprintf("<strong>%s</strong><br/>Ratio: %s (tasa %s / 100k)",
-                         mapa_datos$NAME_2,
-                         format(round(mapa_datos$Ratio, 2), decimal.mark = ","),
-                         format(round(mapa_datos$Tasa, 1), decimal.mark = ",")) %>%
-      lapply(htmltools::HTML)
-    leaflet(mapa_datos) %>%
-      tiles_osm() %>%
-      addPolygons(fillColor = ~pal(Ratio), weight = 1, color = "white",
-                  fillOpacity = 0.8, label = etiquetas) %>%
-      addLegend(pal = pal, values = dominio_colores, opacity = 0.8,
-                title = "Ratio vs nacional", position = "bottomright",
-                labFormat = labelFormat(digits = 2))
-  })
 
   output$des_evol <- renderPlotly({
     df <- datos_des_evol()
@@ -1409,157 +1458,6 @@ server_causas <- function(input, output, session) {
                       dec.mark = ",", mark = ".")
   })
 
-  # --- COMPARADOR DE CCAA (una comunidad frente a la media nacional) ---
-  # FIX: población con distinct(Comunidad, Provincia, Sexo) por venir repetida
-  # en cada fila de causa.
-  datos_cc <- reactive({
-    req(input$cc_comunidad, input$cc_ano, input$cc_sexo)
-    df <- causas_provinciales %>% filter(Año == input$cc_ano)
-    if (input$cc_sexo != "Ambos") df <- df %>% filter(Sexo == input$cc_sexo)
-    pob <- df %>%
-      distinct(Comunidad, Provincia, Sexo, Poblacion) %>%
-      group_by(Comunidad) %>%
-      summarise(P = sum(Poblacion, na.rm = TRUE), .groups = "drop")
-    pn <- sum(pob$P)
-    nac <- df %>%
-      group_by(Defunción) %>%
-      summarise(F = sum(Fallecidos, na.rm = TRUE), .groups = "drop") %>%
-      mutate(Tasa_nac = F / pn * 100000)
-    cap <- df %>%
-      group_by(Comunidad, Defunción) %>%
-      summarise(F = sum(Fallecidos, na.rm = TRUE), .groups = "drop") %>%
-      left_join(pob, by = "Comunidad") %>%
-      mutate(Tasa = if_else(P > 0, F / P * 100000, NA_real_)) %>%
-      filter(is.finite(Tasa))
-    cc <- cap %>%
-      filter(Comunidad == input$cc_comunidad) %>%
-      transmute(Causa = Defunción, Tasa_cc = Tasa) %>%
-      right_join(nac %>% transmute(Causa = Defunción, Tasa_nac), by = "Causa") %>%
-      mutate(Tasa_cc = dplyr::coalesce(Tasa_cc, 0),
-             Ratio = if_else(Tasa_nac > 0, Tasa_cc / Tasa_nac, NA_real_))
-    tot <- cap %>%
-      group_by(Comunidad) %>%
-      summarise(F = sum(F, na.rm = TRUE), .groups = "drop") %>%
-      left_join(pob, by = "Comunidad") %>%
-      mutate(Tasa = if_else(P > 0, F / P * 100000, NA_real_)) %>%
-      filter(is.finite(Tasa)) %>% arrange(desc(Tasa))
-    list(cap = cc, tot = tot, tasa_nac = sum(nac$F, na.rm = TRUE) / pn * 100000)
-  }) %>% bindCache(input$cc_comunidad, input$cc_ano, input$cc_sexo)
-
-  datos_cc_evol <- reactive({
-    req(input$cc_comunidad, input$cc_sexo)
-    df <- causas_provinciales
-    if (input$cc_sexo != "Ambos") df <- df %>% filter(Sexo == input$cc_sexo)
-    pob <- df %>%
-      distinct(Año, Año_Num, Comunidad, Provincia, Sexo, Poblacion) %>%
-      group_by(Año, Año_Num, Comunidad) %>%
-      summarise(P = sum(Poblacion, na.rm = TRUE), .groups = "drop")
-    t <- df %>%
-      group_by(Año, Año_Num, Comunidad) %>%
-      summarise(F = sum(Fallecidos, na.rm = TRUE), .groups = "drop") %>%
-      left_join(pob, by = c("Año", "Año_Num", "Comunidad")) %>%
-      mutate(Tasa = if_else(P > 0, F / P * 100000, NA_real_)) %>%
-      filter(is.finite(Tasa))
-    cc <- t %>%
-      filter(Comunidad == input$cc_comunidad) %>%
-      transmute(Año_Num, Tasa_cc = Tasa)
-    nac <- t %>%
-      group_by(Año, Año_Num) %>%
-      summarise(F = sum(F, na.rm = TRUE), P = sum(P, na.rm = TRUE), .groups = "drop") %>%
-      transmute(Año_Num, Tasa_nac = if_else(P > 0, F / P * 100000, NA_real_)) %>%
-      filter(is.finite(Tasa_nac))
-    left_join(cc, nac, by = "Año_Num") %>% arrange(Año_Num)
-  }) %>% bindCache(input$cc_comunidad, input$cc_sexo)
-
-  output$cc_kpi_tasa <- renderText({
-    d <- datos_cc()
-    t <- d$tot %>% filter(Comunidad == input$cc_comunidad)
-    if (!nrow(t)) return("-")
-    paste0(format(round(t$Tasa[1], 1), big.mark = ".", decimal.mark = ","),
-           " / 100k (nac: ",
-           format(round(d$tasa_nac, 1), big.mark = ".", decimal.mark = ","), ")")
-  })
-
-  output$cc_kpi_brecha <- renderText({
-    d <- datos_cc()
-    t <- d$tot %>% filter(Comunidad == input$cc_comunidad)
-    if (!nrow(t) || !is.finite(d$tasa_nac) || d$tasa_nac == 0) return("-")
-    b <- (t$Tasa[1] - d$tasa_nac) / d$tasa_nac * 100
-    paste0(ifelse(b >= 0, "+", ""), format(round(b, 1), decimal.mark = ","), " %")
-  })
-
-  output$cc_kpi_puesto <- renderText({
-    d <- datos_cc()
-    p <- match(input$cc_comunidad, d$tot$Comunidad)
-    if (is.na(p)) return("-")
-    paste0(p, "º de ", nrow(d$tot))
-  })
-
-  output$cc_radar <- renderPlotly({
-    d <- datos_cc()$cap
-    req(nrow(d) > 0)
-    d <- d %>% mutate(Etiqueta = stringr::str_wrap(Causa, width = 22))
-    plot_ly(type = "scatterpolar", fill = "toself", mode = "lines+markers") %>%
-      add_trace(r = d$Tasa_cc, theta = d$Etiqueta, name = input$cc_comunidad,
-                marker = list(color = "#0E9F8A"), fillcolor = "rgba(14,159,138,0.25)",
-                hovertemplate = "<b>%{theta}</b><br>Tasa: %{r:.1f}<extra></extra>") %>%
-      add_trace(r = d$Tasa_nac, theta = d$Etiqueta, name = "Nacional",
-                marker = list(color = "#1a2f47"), fillcolor = "rgba(26,47,71,0.15)",
-                hovertemplate = "<b>%{theta}</b><br>Nacional: %{r:.1f}<extra></extra>") %>%
-      layout(polar = list(radialaxis = list(visible = TRUE)),
-             legend = list(orientation = "h", y = -0.15),
-             hoverlabel = list(bgcolor = "white"),
-             margin = list(l = 40, r = 40, b = 80, t = 20))
-  })
-
-  output$cc_evol <- renderPlotly({
-    df <- datos_cc_evol()
-    req(nrow(df) > 0)
-    plot_ly(df, x = ~Año_Num) %>%
-      add_trace(y = ~Tasa_cc, name = input$cc_comunidad, type = "scatter",
-                mode = "lines+markers", line = list(color = "#0E9F8A", width = 2.5),
-                marker = list(line = list(color = "white", width = 1)),
-                hovertemplate = "<b>%{x}</b><br>Tasa: %{y:.1f}<extra></extra>") %>%
-      add_trace(y = ~Tasa_nac, name = "Nacional", type = "scatter",
-                mode = "lines+markers", line = list(color = "#1a2f47", dash = "dash"),
-                marker = list(line = list(color = "white", width = 1)),
-                hovertemplate = "<b>%{x}</b><br>Nacional: %{y:.1f}<extra></extra>") %>%
-      layout(xaxis = list(title = "Año", dtick = 1), yaxis = list(title = "Tasa / 100k"),
-             legend = list(orientation = "h", y = -0.15),
-             hoverlabel = list(bgcolor = "white"),
-             margin = list(l = 60, r = 20, b = 80, t = 20))
-  })
-
-  output$cc_brechas <- renderPlotly({
-    df <- datos_cc()$cap %>% filter(is.finite(Ratio)) %>% arrange(Ratio)
-    req(nrow(df) > 0)
-    lim <- suppressWarnings(max(abs(df$Ratio - 1)))
-    if (!is.finite(lim) || lim == 0) lim <- 0.1
-    plot_ly(df, x = ~Ratio, y = ~reorder(Causa, Ratio), type = "bar", orientation = "h",
-            marker = list(color = ~Ratio, colorscale = escala_plotly(PAL_RDBU_REV),
-                          cmin = 1 - lim, cmax = 1 + lim, showscale = TRUE,
-                          colorbar = list(title = "Ratio"),
-                          line = list(color = "white", width = 1)),
-            hovertemplate = "<b>%{y}</b><br>Ratio: %{x:.2f}<extra></extra>") %>%
-      layout(xaxis = list(title = "Ratio frente a la media nacional"),
-             yaxis = list(title = "", tickfont = list(size = 10)),
-             hoverlabel = list(bgcolor = "white"),
-             shapes = list(list(type = "line", x0 = 1, x1 = 1, y0 = 0, y1 = 1,
-                                yref = "paper",
-                                line = list(color = "black", dash = "dash"))),
-             margin = list(l = 220, r = 20, b = 60, t = 20))
-  })
-
-  output$cc_tabla <- DT::renderDT({
-    tab <- datos_cc()$cap %>%
-      transmute(Capítulo = Causa, `Tasa CCAA` = round(Tasa_cc, 1),
-                `Tasa nacional` = round(Tasa_nac, 1), Ratio = round(Ratio, 3)) %>%
-      arrange(desc(Ratio))
-    DT::datatable(tab, options = list(pageLength = 13, autoWidth = TRUE, scrollX = TRUE),
-                  rownames = FALSE) %>%
-      DT::formatRound(c("Tasa CCAA", "Tasa nacional", "Ratio"), c(1, 1, 3),
-                      dec.mark = ",", mark = ".")
-  })
 
   # --- INFORMES EXCEL POR TERRITORIO ---
   observe({
@@ -1798,4 +1696,6 @@ server_causas <- function(input, output, session) {
   })
 
 }
+
+
 

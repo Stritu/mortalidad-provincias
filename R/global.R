@@ -1080,45 +1080,6 @@ meses_anios <- sort(unique(meses_data$Año))
 meses_sexos <- c("Ambos", "Hombres", "Mujeres")
 rm(list = intersect("df_meses_raw", ls()))
 
-# Defunciones por edad, sexo y comunidad autónoma
-df_edad_com_raw <- tryCatch(
-  utils::read.csv2("defunciones_sex_comunidad.csv", header = TRUE, check.names = FALSE,
-                   stringsAsFactors = FALSE, fileEncoding = "latin1",
-                   colClasses = rep("character", 6)),
-  error = function(e) NULL
-)
-if (is.null(df_edad_com_raw) || ncol(df_edad_com_raw) < 6) {
-  stop("No se pudo leer correctamente 'defunciones_sex_comunidad.csv'. Se esperan 6 columnas.")
-}
-
-edad_com_data <- tibble::tibble(
-  Comunidad = as.character(df_edad_com_raw[[2]]),
-  Causa = as.character(df_edad_com_raw[[3]]),
-  Edad = as.character(df_edad_com_raw[[4]]),
-  Sexo = as.character(df_edad_com_raw[[5]]),
-  Defunciones = numero_limpio(df_edad_com_raw[[6]])
-) %>%
-  mutate(
-    Comunidad = trimws(sub("^\\d+\\s+", "", Comunidad)),
-    Causa = limpiar_texto(trimws(sub("^[^ ]+\\s+", "", Causa))),
-    Causa = trimws(sub("^[IVXLC]+(-[IVXLC]+)?\\.\\s*", "", Causa)),
-    Edad = trimws(limpiar_texto(Edad)),
-    Sexo = trimws(Sexo)
-  ) %>%
-  filter(is.finite(Defunciones))
-
-# Orden de edad para la pirámide
-orden_edad_com <- edad_com_data %>%
-  distinct(Edad) %>%
-  mutate(
-    orden = suppressWarnings(as.numeric(gsub("[^0-9].*", "", gsub("^De ", "", Edad))))
-  ) %>%
-  mutate(orden = ifelse(is.na(orden), 0, orden)) %>%
-  arrange(orden) %>%
-  pull(Edad)
-
-edad_com_causas <- sort(unique(as.character(edad_com_data$Causa)))
-edad_com_comunidades <- sort(unique(as.character(edad_com_data$Comunidad)))
 rm(list = intersect("df_edad_com_raw", ls()))
 
 # ==============================================================================
@@ -1849,6 +1810,87 @@ scan_espacio_temporal <- function(df, vecinos, alpha = 0.05) {
   do.call(rbind, res)
 }
 
+# Cestas de mortalidad evitable (aproximación por capítulos, sin límite <75).
+cesta_evitable <- c(
+  "Causas externas de mortalidad" = "Prevenible",
+  "Enfermedades infecciosas y parasitarias" = "Prevenible",
+  "Enfermedades del sistema circulatorio" = "Tratable",
+  "Enfermedades del sistema genitourinario" = "Tratable",
+  "Embarazo, parto y puerperio" = "Tratable",
+  "Afecciones originadas en el periodo perinatal" = "Tratable",
+  "Tumores" = "Mixto",
+  "Enfermedades del sistema respiratorio" = "Mixto",
+  "Enfermedades del sistema digestivo" = "Mixto",
+  "Enfermedades endocrinas, nutricionales y metabólicas" = "Mixto"
+)
+cesta_palanca <- c(
+  "Prevenible" = "Prevención primaria y salud pública",
+  "Tratable" = "Detección precoz y sistema asistencial",
+  "Mixto" = "Mezcla causas evitables y no evitables",
+  "Resto" = "Sin palanca clara a este nivel de desglose"
+)
+cesta_colores <- c("Prevenible" = "#0E9F8A", "Tratable" = "#1a2f47",
+                   "Mixto" = "#E8A838", "Resto" = "#BDBDBD")
+
+asignar_cesta <- function(defuncion) {
+  cesta <- unname(cesta_evitable[as.character(defuncion)])
+  cesta[is.na(cesta)] <- "Resto"
+  factor(cesta, levels = c("Prevenible", "Tratable", "Mixto", "Resto"))
+}
+
+# Tasas provinciales reutilizables (puras; las usa el mapa único y las
+# subpestañas). La población viene repetida por causa: distinct por sexo.
+tasa_causa_prov <- function(ano, sexo = "Ambos", causa = "Todas") {
+  df <- causas_provinciales %>% filter(Año == ano)
+  if (sexo != "Ambos") df <- df %>% filter(Sexo == sexo)
+  if (!identical(causa, "Todas")) df <- df %>% filter(Defunción == causa)
+  pob <- df %>%
+    distinct(Provincia, Sexo, Poblacion) %>%
+    group_by(Provincia) %>%
+    summarise(Poblacion = sum(Poblacion, na.rm = TRUE), .groups = "drop")
+  df %>%
+    group_by(Provincia) %>%
+    summarise(Fallecidos = sum(Fallecidos, na.rm = TRUE), .groups = "drop") %>%
+    left_join(pob, by = "Provincia") %>%
+    mutate(Tasa = if_else(Poblacion > 0, Fallecidos / Poblacion * 100000, NA_real_)) %>%
+    filter(is.finite(Tasa))
+}
+
+tasa_std_prov <- function(ano, sexo = "Ambos") {
+  if (is.null(datos_edad_std)) return(data.frame())
+  datos_edad_std$resumen %>%
+    filter(Año == as.character(ano), Sexo == sexo) %>%
+    filter(is.finite(Tasa_bruta), is.finite(Tasa_std)) %>%
+    mutate(Puesto_bruta = rank(-Tasa_bruta, ties.method = "min"),
+           Puesto_std = rank(-Tasa_std, ties.method = "min"),
+           Cambio = Puesto_std - Puesto_bruta)
+}
+
+tasa_sensible_prov <- function(ano, sexo = "Ambos") {
+  df <- causas_provinciales %>% filter(Año == ano)
+  if (sexo != "Ambos") df <- df %>% filter(Sexo == sexo)
+  df <- df %>% mutate(Cesta = asignar_cesta(Defunción), Sensible = Cesta != "Resto")
+  pob <- df %>%
+    distinct(Provincia, Sexo, Poblacion) %>%
+    group_by(Provincia) %>%
+    summarise(Poblacion = sum(Poblacion, na.rm = TRUE), .groups = "drop")
+  df %>%
+    group_by(Provincia, Comunidad) %>%
+    summarise(Fall_Sens = sum(Fallecidos[Sensible], na.rm = TRUE),
+              Fall_Tot = sum(Fallecidos, na.rm = TRUE), .groups = "drop") %>%
+    left_join(pob, by = "Provincia") %>%
+    mutate(Pct = if_else(Fall_Tot > 0, Fall_Sens / Fall_Tot * 100, NA_real_),
+           Tasa = if_else(Poblacion > 0, Fall_Sens / Poblacion * 100000, NA_real_)) %>%
+    filter(is.finite(Pct), is.finite(Tasa))
+}
+
+brecha_prov <- function(ano, sexo = "Ambos", causa = "Todas") {
+  prov <- tasa_causa_prov(ano, sexo, causa)
+  if (!nrow(prov)) return(prov)
+  tasa_nac <- sum(prov$Fallecidos) / sum(prov$Poblacion) * 100000
+  prov %>% mutate(Ratio = Tasa / tasa_nac)
+}
+
 # Gini ponderado por población (0 = igualdad total). Fórmula exacta O(n²).
 gini_pond <- function(x, w) {
   ok <- is.finite(x) & is.finite(w) & w > 0
@@ -1859,3 +1901,4 @@ gini_pond <- function(x, w) {
   if (!is.finite(mu) || mu == 0) return(NA_real_)
   sum(outer(w, w) * abs(outer(x, x, `-`))) / (2 * sum(w)^2 * mu)
 }
+

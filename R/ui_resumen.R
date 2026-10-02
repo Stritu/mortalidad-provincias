@@ -26,17 +26,17 @@ ui_resumen <- nav_panel(
             h5("Causas de defunción"),
             p("Punto de partida: 13 capítulos de causa por provincia, sexo y año."),
             tags$ul(
-              tags$li(actionLink("ir_c_prov", "Análisis provincial"), ": mapa, evolución de extremos y rankings por causa."),
+              tags$li(actionLink("ir_map", "Mapas provinciales"), ": tasa, estandarizada, % sensible y brecha en un solo mapa."),
+              tags$li(actionLink("ir_c_prov", "Análisis provincial"), ": evolución de extremos y rankings por causa."),
               tags$li(actionLink("ir_c_est", "Estacionalidad"), ": patrón mensual por causa y sexo."),
               tags$li(actionLink("ir_c_evo", "Evolución temporal"), ": tasa por CCAA 2018–2022 y mapa de calor de variaciones."),
-              tags$li(actionLink("ir_c_comp", "Comparador de Provincias"), ": dos provincias frente a la media nacional, con radares."),
+              tags$li(actionLink("ir_ct", "Comparador territorial"), ": A frente a B o la media nacional, en provincias o CCAA."),
               tags$li(actionLink("ir_c_apvp", "Mortalidad prematura (APVP)"), ": años potenciales de vida perdidos por CCAA (el INE no publica provincias)."),
               tags$li(actionLink("ir_c_std", "Tasas estandarizadas por edad"), ": ESP-2013; bruta frente a ajustada."),
               tags$li(actionLink("ir_c_edad", "Edad y mes"), ": pirámide por edad simple, mediana, mes pico y serie desde 2009."),
               tags$li(actionLink("ir_c_evit", "Mortalidad evitable"), ": cestas prevenible / tratable / mixto (aproximación sin límite <75)."),
               tags$li(actionLink("ir_c_des", "Desigualdad territorial"), ": Gini ponderado, P90/P10 y mapa de brechas."),
               tags$li(actionLink("ir_c_al", "Alertas de atípicos"), ": cambios bruscos y niveles extremos, con serie vinculada."),
-              tags$li(actionLink("ir_c_cc", "Comparador de CCAA"), ": radar, brechas y evolución frente a la media nacional."),
               tags$li(actionLink("ir_c_inf", "Informes"), ": Excel por provincia o CCAA (Resumen, Por causa, Evolución).")
             ),
             h5("Métricas demográficas"),
@@ -101,12 +101,5 @@ ui_resumen <- nav_panel(
         bslib::card(card_header("Top 10 países europeos por tasa de mortalidad"),
                     card_body(plotlyOutput("res_europa", height = "380px")))
       ),
-      bslib::card(
-        card_header("Pirámide de defunciones por edad y sexo"),
-        card_body(
-          plotlyOutput("ped_edad_sexo", height = "480px"),
-          HTML("<p class='text-muted mb-0'><small>Defunciones agregadas de todo el periodo 2018-2022.</small></p>")
-        )
-      )
     )
   )

@@ -5,6 +5,35 @@ ui_causas <- nav_panel(
     navset_tab(
       id = "nav_causas",
       nav_panel(
+        title = "Mapas provinciales",
+        layout_sidebar(
+          sidebar = sidebar(
+            title = "Filtros",
+            width = 290,
+            selectInput("map_ind", "Indicador:",
+                        choices = c("Tasa por causa", "Estandarizada", "% sensible", "Brecha vs nacional"),
+                        selected = "Tasa por causa"),
+            selectInput("map_ano", "Año:", choices = sort(unique(copia_causas$Año)),
+                        selected = if ("2022" %in% copia_causas$Año) "2022" else sort(unique(copia_causas$Año))[1]),
+            selectInput("map_causa", "Causa (tasa y brecha):",
+                        choices = c("Todas", lista_defunciones), selected = "Todas"),
+            radioButtons("map_sexo", "Sexo:", choices = c("Ambos", "Hombres", "Mujeres"), selected = "Ambos"),
+            div(class = "filter-help", HTML(
+              "Un solo mapa para los 4 indicadores provinciales. <b>Estandarizada</b> y <b>% sensible</b> ignoran la causa."
+            ))
+          ),
+          layout_columns(
+            col_widths = c(6, 6),
+            value_box(title = "Mayor valor", value = textOutput("map_kpi_max"),
+                      showcase = bsicons::bs_icon("arrow-up-circle"), theme = "danger"),
+            value_box(title = "Menor valor", value = textOutput("map_kpi_min"),
+                      showcase = bsicons::bs_icon("arrow-down-circle"), theme = "success")
+          ),
+          bslib::card(card_header(textOutput("map_titulo")),
+                      card_body(padding = 0, leafletOutput("map_mapa", height = "520px")))
+        )
+      ),
+      nav_panel(
         title = "Análisis provincial",
         layout_sidebar(
           sidebar = sidebar(
@@ -26,11 +55,7 @@ ui_causas <- nav_panel(
             card_header("Interpretación"),
             card_body(HTML("<p>Las <b>tasas por 100.000 habitantes</b> permiten comparar provincias con distinta población. El mapa muestra la foto del año elegido; la evolución, a las 5 provincias con mayor y menor tasa junto a la media nacional; y los rankings, las 3 causas con mayor y menor tasa por sexo.</p>"))
           ),
-          layout_columns(
-            col_widths = c(6, 6),
-            bslib::card(card_header("Mapa de la tasa de la causa seleccionada (por 100k hab.)"), card_body(padding = 0, leafletOutput("p2_mapa", height = "350px"))),
-            bslib::card(card_header("Evolución Temporal: Provincias Extremas y Media Nacional"), card_body(plotlyOutput("p2_evolucion_top_bot", height = "350px")))
-          ),
+          bslib::card(card_header("Evolución Temporal: Provincias Extremas y Media Nacional"), card_body(plotlyOutput("p2_evolucion_top_bot", height = "350px"))),
           layout_columns(
             col_widths = c(6, 6),
             bslib::card(card_header("Causas con mayor tasa por sexo"), card_body(plotlyOutput("p2_causas_mas_sexo", height = "300px"))),
@@ -117,40 +142,47 @@ ui_causas <- nav_panel(
         )
       ),
       nav_panel(
-        title = "Comparador de Provincias",
+        title = "Comparador territorial",
         layout_sidebar(
           sidebar = sidebar(
             title = "Configuración",
-            width = 280,
-            selectInput("p21_prov_a", "Provincia:", choices = lista_provincias,
-                        selected = if ("Vizcaya" %in% lista_provincias) "Vizcaya" else lista_provincias[1]),
-            selectInput("p21_prov_b", "Provincia:", choices = lista_provincias,
-                        selected = if ("Asturias" %in% lista_provincias) "Asturias" else lista_provincias[min(2, length(lista_provincias))]),
-            selectInput("p21_defuncion", "Causa de Defunción:", choices = lista_defunciones, selected = lista_defunciones[1]),
-            selectInput("p21_ano", "Año (para el radar):", choices = c("Todos los años", "2018", "2019", "2020", "2021", "2022"), selected = "2020"),
-            uiOutput("p21_filtro_info")
+            width = 290,
+            selectInput("ct_nivel", "Nivel:", choices = c("Provincia", "CCAA"), selected = "Provincia"),
+            selectInput("ct_a", "Territorio A:", choices = sort(unique(causas_provinciales$Provincia)),
+                        selected = if ("Madrid" %in% causas_provinciales$Provincia) "Madrid" else sort(unique(causas_provinciales$Provincia))[1]),
+            selectInput("ct_b", "Territorio B:", choices = c("Media nacional"), selected = "Media nacional"),
+            selectInput("ct_causa", "Causa (evolución y KPIs):",
+                        choices = c("Todas", lista_defunciones), selected = "Todas"),
+            selectInput("ct_ano", "Año (radar, brechas y KPIs):",
+                        choices = sort(unique(copia_causas$Año)),
+                        selected = if ("2022" %in% copia_causas$Año) "2022" else sort(unique(copia_causas$Año))[1]),
+            radioButtons("ct_sexo", "Sexo:", choices = c("Ambos", "Hombres", "Mujeres"), selected = "Ambos"),
+            uiOutput("ct_info")
+          ),
+          layout_columns(
+            col_widths = c(4, 4, 4),
+            value_box(title = "Tasa de A (causa y año)", value = textOutput("ct_kpi_tasa"),
+                      showcase = bsicons::bs_icon("geo-alt"), theme = "primary"),
+            value_box(title = "Brecha A frente a referencia", value = textOutput("ct_kpi_brecha"),
+                      showcase = bsicons::bs_icon("arrow-left-right"), theme = "info"),
+            value_box(title = "Capítulo más distintivo", value = textOutput("ct_kpi_top"),
+                      showcase = bsicons::bs_icon("trophy"), theme = "success")
           ),
           bslib::card(
             card_header("Interpretación"),
-            card_body(HTML("<p>Compara <b>dos provincias</b> frente a la <b>media nacional</b>: la evolución muestra si avanzan mejor o peor que el conjunto, y los radares resumen el perfil por grupos de causas en el año elegido (arriba) y en el resto de años (abajo).</p>"))
+            card_body(HTML("<p>Compara un territorio <b>A</b> con otro <b>B</b> o la <b>media nacional</b>: la evolución sigue la causa elegida 2018–2022; el radar, las brechas y la tabla comparan los 13 capítulos en el año elegido (tasas ponderadas por población).</p>"))
           ),
-          layout_columns(
-            col_widths = c(12),
-            bslib::card(
-              card_header("Evolución Temporal Comparada con la Media Nacional (2018-2022)"),
-              card_body(plotlyOutput("p21_evol_nacional", height = "350px"))
-            )
-          ),
+          bslib::card(card_header("Evolución de la causa (A, B y nacional)"),
+                      card_body(plotlyOutput("ct_evol", height = "350px"))),
           layout_columns(
             col_widths = c(6, 6),
-            bslib::card(card_header(uiOutput("p21_radar_title_a")), card_body(plotlyOutput("p21_radar_a", height = "320px"))),
-            bslib::card(card_header(uiOutput("p21_radar_title_b")), card_body(plotlyOutput("p21_radar_b", height = "320px")))
+            bslib::card(card_header("Radar por capítulos (tasa / 100k)"),
+                        card_body(plotlyOutput("ct_radar", height = "430px"))),
+            bslib::card(card_header("Brechas por capítulo (A frente a referencia)"),
+                        card_body(plotlyOutput("ct_brechas", height = "520px")))
           ),
-          layout_columns(
-            col_widths = c(6, 6),
-            bslib::card(card_header(uiOutput("p21_radar_bottom_title_a")), card_body(plotlyOutput("p21_radar_a_bot", height = "320px"))),
-            bslib::card(card_header(uiOutput("p21_radar_bottom_title_b")), card_body(plotlyOutput("p21_radar_b_bot", height = "320px")))
-          )
+          bslib::card(card_header("Tabla por capítulo (A frente a referencia)"),
+                      card_body(DT::DTOutput("ct_tabla")))
         )
       ),
       nav_panel(
@@ -228,13 +260,8 @@ ui_causas <- nav_panel(
               card_header("Interpretación"),
               card_body(HTML("<p>La <b>tasa bruta</b> mezcla riesgo y estructura de edad; la <b>estandarizada</b> repondera cada tramo con la Población Estándar Europea 2013 y permite comparar provincias en igualdad de condiciones. La diagonal del gráfico marca la igualdad: las provincias alejadas cambian mucho de puesto al eliminar el efecto de la edad.</p>"))
             ),
-            layout_columns(
-              col_widths = c(6, 6),
-              bslib::card(card_header("Mapa de la tasa estandarizada (ESP 2013, por 100k hab.)"),
-                          card_body(padding = 0, leafletOutput("std_mapa", height = "430px"))),
-              bslib::card(card_header("Bruta frente a estandarizada"),
-                          card_body(plotlyOutput("std_scatter", height = "430px")))
-            ),
+            bslib::card(card_header("Bruta frente a estandarizada"),
+                        card_body(plotlyOutput("std_scatter", height = "430px"))),
             bslib::card(card_header("Tabla por provincia (bruta, estandarizada y puestos)"),
                         card_body(DT::DTOutput("std_tabla")))
           )
@@ -316,13 +343,8 @@ ui_causas <- nav_panel(
             card_header("Interpretación y metodología"),
             card_body(HTML("<p>Los 17 capítulos de la lista reducida se agrupan en 4 <b>cestas</b> según la palanca que más los mueve: <b>Prevenible</b> (causas externas, infecciosas), <b>Tratable</b> (circulatorio, genitourinario, embarazo, perinatal), <b>Mixto</b> (tumores, respiratorio, digestivo, endocrinas: mezclan causas evitables y no evitables) y <b>Resto</b>. Es una <b>aproximación honesta</b>: el indicador oficial exige causa CIE-3 y edad menor de 75 años, detalle que estos ficheros no traen, así que la cesta mixta incluye también defunciones no evitables.</p>"))
           ),
-          layout_columns(
-            col_widths = c(6, 6),
-            bslib::card(card_header("% sensible por provincia (prevenible + tratable + mixto)"),
-                        card_body(padding = 0, leafletOutput("pev_mapa", height = "430px"))),
-            bslib::card(card_header("Evolución nacional por cesta (% sobre el total)"),
-                        card_body(plotlyOutput("pev_evol", height = "430px")))
-          ),
+          bslib::card(card_header("Evolución nacional por cesta (% sobre el total)"),
+                      card_body(plotlyOutput("pev_evol", height = "430px"))),
           layout_columns(
             col_widths = c(6, 6),
             bslib::card(card_header("Tasa sensible por comunidad (por 100k hab.)"),
@@ -360,13 +382,8 @@ ui_causas <- nav_panel(
             card_header("Interpretación"),
             card_body(HTML("<p>El <b>mapa de brechas</b> compara cada provincia con la media nacional (rojo = por encima, azul = por debajo). La <b>evolución</b> dice si los territorios convergen (líneas a la baja) o divergen. El Gini pondera por población; los percentiles P90/P10 se calculan entre provincias sin ponderar.</p>"))
           ),
-          layout_columns(
-            col_widths = c(6, 6),
-            bslib::card(card_header("Brecha de cada provincia frente a la media nacional"),
-                        card_body(padding = 0, leafletOutput("des_mapa", height = "430px"))),
-            bslib::card(card_header("Convergencia 2018–2022 (Gini y ratios)"),
-                        card_body(plotlyOutput("des_evol", height = "430px")))
-          ),
+          bslib::card(card_header("Convergencia 2018–2022 (Gini y ratios)"),
+                      card_body(plotlyOutput("des_evol", height = "430px"))),
           layout_columns(
             col_widths = c(6, 6),
             bslib::card(card_header("Ranking de brechas (ratio frente a nacional)"),
@@ -416,48 +433,6 @@ ui_causas <- nav_panel(
             col_widths = c(12),
             bslib::card(card_header("Tabla de hallazgos (ordenada por |z|)"),
                         card_body(DT::DTOutput("al_tabla")))
-          )
-        )
-      ),
-      nav_panel(
-        title = "Comparador de CCAA",
-        layout_sidebar(
-          sidebar = sidebar(
-            title = "Configuración",
-            width = 290,
-            selectInput("cc_comunidad", "Comunidad:",
-                        choices = sort(unique(causas_provinciales$Comunidad)),
-                        selected = "Madrid"),
-            selectInput("cc_ano", "Año (radar y KPIs):",
-                        choices = sort(unique(copia_causas$Año)),
-                        selected = if ("2022" %in% copia_causas$Año) "2022" else sort(unique(copia_causas$Año))[1]),
-            radioButtons("cc_sexo", "Sexo:", choices = c("Ambos", "Hombres", "Mujeres"), selected = "Ambos"),
-            div(class = "filter-help", HTML(
-              "Compara una comunidad con la <b>media nacional</b>: radar por capítulos, brechas por causa y evolución de la tasa total."
-            ))
-          ),
-          layout_columns(
-            col_widths = c(4, 4, 4),
-            value_box(title = "Tasa de la comunidad", value = textOutput("cc_kpi_tasa"),
-                      showcase = bsicons::bs_icon("geo-alt"), theme = "primary"),
-            value_box(title = "Brecha frente a nacional", value = textOutput("cc_kpi_brecha"),
-                      showcase = bsicons::bs_icon("arrow-left-right"), theme = "info"),
-            value_box(title = "Puesto entre CCAA", value = textOutput("cc_kpi_puesto"),
-                      showcase = bsicons::bs_icon("trophy"), theme = "success")
-          ),
-          layout_columns(
-            col_widths = c(6, 6),
-            bslib::card(card_header("Radar por capítulos (tasa / 100k)"),
-                        card_body(plotlyOutput("cc_radar", height = "430px"))),
-            bslib::card(card_header("Evolución de la tasa total (comunidad vs nacional)"),
-                        card_body(plotlyOutput("cc_evol", height = "430px")))
-          ),
-          layout_columns(
-            col_widths = c(6, 6),
-            bslib::card(card_header("Brechas por capítulo (ratio frente a nacional)"),
-                        card_body(plotlyOutput("cc_brechas", height = "520px"))),
-            bslib::card(card_header("Tabla por capítulo"),
-                        card_body(DT::DTOutput("cc_tabla")))
           )
         )
       ),
@@ -533,4 +508,5 @@ ui_causas <- nav_panel(
       )
     )
   )
+
 
